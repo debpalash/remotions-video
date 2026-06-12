@@ -11,6 +11,7 @@ import {
 } from "./promo/InterviewerDeepDive";
 import { Manifesto, MANIFESTO_DURATION } from "./promo/Manifesto";
 import { VoiceTeaser, VOICE_TEASER_DURATION } from "./promo/VoiceTeaser";
+import { GlowUp, GLOWUP_DURATION } from "./promo/resubird/GlowUp";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -62,6 +63,14 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={VOICE_TEASER_DURATION}
         width={1920}
         height={1080}
+      />
+      <Composition
+        id="ResubirdGlowUp"
+        component={GlowUp}
+        fps={30}
+        durationInFrames={GLOWUP_DURATION}
+        width={1080}
+        height={1920}
       />
     </>
   );
