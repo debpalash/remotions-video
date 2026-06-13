@@ -45,37 +45,148 @@ const vis = (frame: number, [s, e]: [number, number], fade = 14) =>
     }),
   );
 
+// gentle breathing push for life
+const breathe = (local: number) => 1 + Math.sin(local / 32) * 0.007;
+
 const MachineBackdrop: React.FC = () => {
   const frame = useCurrentFrame();
   return (
     <AbsoluteFill style={{ background: MBG, overflow: "hidden" }}>
       <AbsoluteFill
         style={{
-          backgroundImage: `linear-gradient(${CYAN}14 1px, transparent 1px), linear-gradient(90deg, ${CYAN}14 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(${CYAN}16 1px, transparent 1px), linear-gradient(90deg, ${CYAN}16 1px, transparent 1px)`,
           backgroundSize: "60px 60px",
-          backgroundPosition: `0 ${(frame * 0.4) % 60}px`,
+          backgroundPosition: `0 ${(frame * 0.5) % 60}px`,
           maskImage:
-            "radial-gradient(ellipse 80% 70% at 50% 45%, black 30%, transparent 100%)",
+            "radial-gradient(ellipse 95% 80% at 50% 45%, black 35%, transparent 100%)",
           WebkitMaskImage:
-            "radial-gradient(ellipse 80% 70% at 50% 45%, black 30%, transparent 100%)",
+            "radial-gradient(ellipse 95% 80% at 50% 45%, black 35%, transparent 100%)",
         }}
       />
       <div
         style={{
           position: "absolute",
-          width: 900,
-          height: 700,
-          left: 90,
-          top: 1100,
-          background: `radial-gradient(ellipse at center, ${CYAN}1f 0%, transparent 65%)`,
-          filter: "blur(40px)",
+          width: 1100,
+          height: 800,
+          left: "50%",
+          top: 760,
+          transform: "translateX(-50%)",
+          background: `radial-gradient(ellipse at center, ${CYAN}22 0%, transparent 62%)`,
+          filter: "blur(50px)",
         }}
       />
-      {/* moving scanlines */}
       <AbsoluteFill
         style={{
-          backgroundImage: `repeating-linear-gradient(0deg, ${CYAN}0a 0px, ${CYAN}0a 1px, transparent 2px, transparent 4px)`,
-          opacity: 0.5,
+          backgroundImage: `repeating-linear-gradient(0deg, ${CYAN}0c 0px, ${CYAN}0c 1px, transparent 2px, transparent 4px)`,
+          opacity: 0.6,
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
+// full-bleed HUD: corner brackets + top/bottom status bars
+const Bracket: React.FC<{ pos: string }> = ({ pos }) => {
+  const base: React.CSSProperties = {
+    position: "absolute",
+    width: 64,
+    height: 64,
+    borderColor: CYAN,
+    opacity: 0.7,
+  };
+  const map: Record<string, React.CSSProperties> = {
+    tl: { left: 32, top: 96, borderLeft: "3px solid", borderTop: "3px solid" },
+    tr: { right: 32, top: 96, borderRight: "3px solid", borderTop: "3px solid" },
+    bl: {
+      left: 32,
+      bottom: 110,
+      borderLeft: "3px solid",
+      borderBottom: "3px solid",
+    },
+    br: {
+      right: 32,
+      bottom: 110,
+      borderRight: "3px solid",
+      borderBottom: "3px solid",
+    },
+  };
+  return <div style={{ ...base, ...map[pos] }} />;
+};
+
+const Hud: React.FC<{ status: string }> = ({ status }) => {
+  const frame = useCurrentFrame();
+  const machineOut = interpolate(frame, [FIX[0] - 8, FIX[0] + 10], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const inO = interpolate(frame, [0, 16], [0, 1], { extrapolateRight: "clamp" });
+  const progress = interpolate(frame, [40, FIX[0] - 20], [4, 99], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  const rec = frame % 30 < 18;
+  return (
+    <AbsoluteFill style={{ opacity: machineOut * inO, pointerEvents: "none" }}>
+      {/* top bar */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 0,
+          height: 72,
+          background: "rgba(5,9,16,0.85)",
+          borderBottom: `1px solid ${CYAN}33`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 40px",
+          fontFamily: FONTS.mono,
+          fontSize: 22,
+          letterSpacing: "0.18em",
+          color: CYAN,
+        }}
+      >
+        <span>◉ ATS TERMINAL</span>
+        <span style={{ color: MDIM }}>SCAN {Math.round(progress)}%</span>
+      </div>
+      <Bracket pos="tl" />
+      <Bracket pos="tr" />
+      <Bracket pos="bl" />
+      <Bracket pos="br" />
+      {/* bottom bar */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 76,
+          background: "rgba(5,9,16,0.85)",
+          borderTop: `1px solid ${CYAN}33`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 40px",
+          fontFamily: FONTS.mono,
+          fontSize: 22,
+          letterSpacing: "0.16em",
+          color: MDIM,
+        }}
+      >
+        <span style={{ color: CYAN }}>&gt; {status}</span>
+        <span style={{ color: rec ? MRED : `${MRED}44` }}>● REC</span>
+      </div>
+      {/* bottom progress hairline */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          bottom: 0,
+          height: 4,
+          width: `${progress}%`,
+          background: CYAN,
+          boxShadow: `0 0 12px ${CYAN}`,
         }}
       />
     </AbsoluteFill>
@@ -85,17 +196,17 @@ const MachineBackdrop: React.FC = () => {
 // grayscale resume document
 const ResumeDoc: React.FC<{ scanY?: number; width?: number }> = ({
   scanY,
-  width = 460,
+  width = 560,
 }) => {
-  const lines = [0.9, 0.55, 0.7, 0.4, 0.8, 0.5, 0.65, 0.45, 0.75];
+  const lines = [0.9, 0.55, 0.7, 0.4, 0.8, 0.5, 0.65, 0.45, 0.75, 0.5, 0.7];
   return (
     <div
       style={{
         width,
         background: "#f4f6f8",
-        borderRadius: 12,
-        padding: "34px 34px 44px",
-        boxShadow: "0 30px 70px rgba(0,0,0,0.5)",
+        borderRadius: 14,
+        padding: "40px 40px 50px",
+        boxShadow: `0 30px 80px rgba(0,0,0,0.6), 0 0 60px ${CYAN}1a`,
         position: "relative",
         overflow: "hidden",
       }}
@@ -103,19 +214,19 @@ const ResumeDoc: React.FC<{ scanY?: number; width?: number }> = ({
       <div
         style={{
           width: "60%",
-          height: 26,
+          height: 30,
           borderRadius: 6,
           background: "#1f2937",
-          marginBottom: 10,
+          marginBottom: 12,
         }}
       />
       <div
         style={{
           width: "38%",
-          height: 12,
+          height: 14,
           borderRadius: 4,
           background: "#9ca3af",
-          marginBottom: 26,
+          marginBottom: 30,
         }}
       />
       {lines.map((w, i) => (
@@ -123,10 +234,10 @@ const ResumeDoc: React.FC<{ scanY?: number; width?: number }> = ({
           key={i}
           style={{
             width: `${w * 100}%`,
-            height: 11,
+            height: 13,
             borderRadius: 4,
             background: "#cbd5e1",
-            marginBottom: 14,
+            marginBottom: 17,
           }}
         />
       ))}
@@ -138,9 +249,9 @@ const ResumeDoc: React.FC<{ scanY?: number; width?: number }> = ({
               left: 0,
               right: 0,
               top: scanY,
-              height: 3,
+              height: 4,
               background: CYAN,
-              boxShadow: `0 0 18px 3px ${CYAN}`,
+              boxShadow: `0 0 26px 5px ${CYAN}`,
             }}
           />
           <div
@@ -150,7 +261,7 @@ const ResumeDoc: React.FC<{ scanY?: number; width?: number }> = ({
               right: 0,
               top: 0,
               height: scanY,
-              background: `linear-gradient(${CYAN}1c, transparent)`,
+              background: `linear-gradient(${CYAN}24, transparent)`,
             }}
           />
         </>
@@ -159,15 +270,43 @@ const ResumeDoc: React.FC<{ scanY?: number; width?: number }> = ({
   );
 };
 
-// ——— Scene 1: Hook (two headline beats) ———
+// chromatic-glitch text
+const Glitch: React.FC<{
+  children: React.ReactNode;
+  on: boolean;
+  size: number;
+  color: string;
+  weight?: number;
+}> = ({ children, on, size, color, weight = 700 }) => {
+  const frame = useCurrentFrame();
+  const j = on ? Math.sin(frame * 3.1) * 3 : 0;
+  const jx = on ? (frame % 3) - 1 : 0;
+  return (
+    <div
+      style={{
+        fontFamily: FONTS.display,
+        fontSize: size,
+        fontWeight: weight,
+        color,
+        transform: `translateX(${jx}px)`,
+        textShadow: on
+          ? `${2 + j}px 0 ${MRED}aa, ${-2 - j}px 0 ${CYAN}aa`
+          : "none",
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// ——— Scene 1: Hook ———
 const SHook: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - HOOK[0];
-  const scanY = interpolate(local, [24, 210], [0, 360], {
+  const scanY = interpolate(local, [24, 210], [0, 520], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  // beat 1: "It's not your experience." -> beat 2: "A robot reads it first."
   const h1 = Math.min(
     interpolate(local, [8, 28], [0, 1], {
       extrapolateLeft: "clamp",
@@ -188,20 +327,14 @@ const SHook: React.FC = () => {
         opacity: vis(frame, HOOK),
         alignItems: "center",
         flexDirection: "column",
+        transform: `scale(${breathe(local)})`,
       }}
     >
-      <div
-        style={{
-          marginTop: 150,
-          width: 960,
-          textAlign: "center",
-          position: "relative",
-        }}
-      >
+      <div style={{ marginTop: 168, width: 980, textAlign: "center" }}>
         <div
           style={{
             fontFamily: FONTS.mono,
-            fontSize: 26,
+            fontSize: 28,
             letterSpacing: "0.3em",
             color: CYAN,
             textTransform: "uppercase",
@@ -209,18 +342,18 @@ const SHook: React.FC = () => {
         >
           ● Analyzing applicant
         </div>
-        <div style={{ position: "relative", height: 170, marginTop: 22 }}>
+        <div style={{ position: "relative", height: 190, marginTop: 26 }}>
           <div
             style={{
               position: "absolute",
               left: 0,
               right: 0,
               fontFamily: FONTS.display,
-              fontSize: 62,
+              fontSize: 72,
               fontWeight: 700,
               letterSpacing: "-0.03em",
               color: "#fff",
-              lineHeight: 1.16,
+              lineHeight: 1.14,
               opacity: h1,
             }}
           >
@@ -234,11 +367,11 @@ const SHook: React.FC = () => {
               left: 0,
               right: 0,
               fontFamily: FONTS.display,
-              fontSize: 62,
+              fontSize: 72,
               fontWeight: 700,
               letterSpacing: "-0.03em",
               color: "#fff",
-              lineHeight: 1.16,
+              lineHeight: 1.14,
               opacity: h2,
             }}
           >
@@ -248,8 +381,8 @@ const SHook: React.FC = () => {
           </div>
         </div>
       </div>
-      <div style={{ marginTop: 80 }}>
-        <ResumeDoc scanY={scanY} />
+      <div style={{ marginTop: 70 }}>
+        <ResumeDoc scanY={scanY} width={620} />
       </div>
     </AbsoluteFill>
   );
@@ -273,12 +406,17 @@ const SParse: React.FC = () => {
     config: { damping: 11, mass: 0.5 },
   });
   return (
-    <AbsoluteFill style={{ opacity: vis(frame, PARSE) }}>
-      <AbsoluteFill style={{ alignItems: "center", top: 120 }}>
+    <AbsoluteFill
+      style={{
+        opacity: vis(frame, PARSE),
+        transform: `scale(${breathe(local)})`,
+      }}
+    >
+      <AbsoluteFill style={{ alignItems: "center", top: 150 }}>
         <div
           style={{
             fontFamily: FONTS.display,
-            fontSize: 62,
+            fontSize: 64,
             fontWeight: 700,
             letterSpacing: "-0.02em",
             color: "#fff",
@@ -295,14 +433,12 @@ const SParse: React.FC = () => {
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: 50,
-          top: 130,
+          gap: 44,
+          top: 110,
         }}
       >
-        <div style={{ transform: "scale(0.82)" }}>
-          <ResumeDoc width={380} />
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <ResumeDoc width={420} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           {FIELDS.map((f) => {
             const s = spring({
               frame: local - f.d,
@@ -318,42 +454,48 @@ const SParse: React.FC = () => {
                     extrapolateRight: "clamp",
                   }),
                   transform: `translateX(${(1 - s) * 50}px)`,
-                  width: 420,
-                  padding: "16px 22px",
-                  borderRadius: 14,
+                  width: 470,
+                  padding: "18px 26px",
+                  borderRadius: 16,
                   background: "rgba(255,255,255,0.05)",
-                  border: `1px solid ${c}55`,
+                  border: `1px solid ${c}66`,
+                  boxShadow: f.bad ? `0 0 24px ${MRED}33` : "none",
                 }}
               >
                 <div
                   style={{
                     fontFamily: FONTS.mono,
-                    fontSize: 19,
+                    fontSize: 20,
                     letterSpacing: "0.16em",
                     color: MDIM,
                   }}
                 >
                   {f.k}
                 </div>
-                <div
-                  style={{
-                    fontFamily: FONTS.body,
-                    fontSize: 30,
-                    fontWeight: 600,
-                    color: f.bad ? MRED : "#fff",
-                    marginTop: 4,
-                  }}
-                >
-                  {f.bad ? "✗ " : ""}
-                  {f.v}
-                </div>
+                {f.bad ? (
+                  <Glitch on size={34} color={MRED}>
+                    ✗ {f.v}
+                  </Glitch>
+                ) : (
+                  <div
+                    style={{
+                      fontFamily: FONTS.body,
+                      fontSize: 34,
+                      fontWeight: 600,
+                      color: "#fff",
+                      marginTop: 4,
+                    }}
+                  >
+                    {f.v}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
       </AbsoluteFill>
       <AbsoluteFill
-        style={{ justifyContent: "flex-end", alignItems: "center", bottom: 150 }}
+        style={{ justifyContent: "flex-end", alignItems: "center", bottom: 180 }}
       >
         <div
           style={{
@@ -361,12 +503,12 @@ const SParse: React.FC = () => {
               extrapolateRight: "clamp",
             }),
             transform: `scale(${0.7 + lostPop * 0.3})`,
-            padding: "16px 40px",
-            borderRadius: 14,
+            padding: "20px 50px",
+            borderRadius: 16,
             background: `${MRED}1f`,
             border: `2px solid ${MRED}`,
             fontFamily: FONTS.display,
-            fontSize: 40,
+            fontSize: 46,
             fontWeight: 700,
             color: MRED,
           }}
@@ -378,14 +520,17 @@ const SParse: React.FC = () => {
   );
 };
 
-// ——— Shared match meter ———
-const MatchMeter: React.FC<{ pct: number; passed: boolean }> = ({
-  pct,
-  passed,
-}) => {
-  const W = 760;
+// shared meter
+const Meter: React.FC<{
+  pct: number;
+  col: string;
+  dimCol: string;
+  trackBg: string;
+}> = ({ pct, col, dimCol, trackBg }) => {
+  const frame = useCurrentFrame();
+  const W = 900;
   const passX = W * 0.75;
-  const col = passed ? MGREEN : MRED;
+  const shine = (frame % 40) / 40;
   return (
     <div style={{ width: W }}>
       <div
@@ -393,15 +538,15 @@ const MatchMeter: React.FC<{ pct: number; passed: boolean }> = ({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "flex-end",
-          marginBottom: 14,
+          marginBottom: 16,
         }}
       >
         <span
           style={{
             fontFamily: FONTS.mono,
-            fontSize: 22,
+            fontSize: 24,
             letterSpacing: "0.16em",
-            color: MDIM,
+            color: dimCol,
           }}
         >
           KEYWORD MATCH
@@ -409,7 +554,7 @@ const MatchMeter: React.FC<{ pct: number; passed: boolean }> = ({
         <span
           style={{
             fontFamily: FONTS.display,
-            fontSize: 58,
+            fontSize: 72,
             fontWeight: 700,
             color: col,
             fontVariantNumeric: "tabular-nums",
@@ -422,9 +567,9 @@ const MatchMeter: React.FC<{ pct: number; passed: boolean }> = ({
       <div
         style={{
           position: "relative",
-          height: 26,
+          height: 32,
           borderRadius: 99,
-          background: "rgba(255,255,255,0.08)",
+          background: trackBg,
           overflow: "hidden",
         }}
       >
@@ -434,29 +579,38 @@ const MatchMeter: React.FC<{ pct: number; passed: boolean }> = ({
             height: "100%",
             borderRadius: 99,
             background: col,
-            boxShadow: `0 0 20px ${col}88`,
+            boxShadow: `0 0 22px ${col}88`,
+            position: "relative",
+            overflow: "hidden",
           }}
-        />
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background: `linear-gradient(105deg, transparent ${shine * 100 - 18}%, rgba(255,255,255,0.4) ${shine * 100}%, transparent ${shine * 100 + 18}%)`,
+            }}
+          />
+        </div>
       </div>
-      {/* pass line */}
       <div
         style={{
           position: "absolute",
           left: passX,
-          top: -6,
-          height: 64,
+          top: -8,
+          height: 76,
           width: 0,
-          borderLeft: `2px dashed ${MDIM}`,
+          borderLeft: `2px dashed ${dimCol}`,
         }}
       />
       <div
         style={{
           position: "absolute",
-          left: passX - 60,
-          top: 64,
+          left: passX - 64,
+          top: 76,
           fontFamily: FONTS.mono,
-          fontSize: 17,
-          color: MDIM,
+          fontSize: 19,
+          color: dimCol,
           letterSpacing: "0.1em",
         }}
       >
@@ -488,13 +642,23 @@ const SKeys: React.FC = () => {
     fps,
     config: { damping: 10, mass: 0.5 },
   });
+  const shake =
+    local >= 104 && local < 120
+      ? Math.sin((local - 104) * 2.6) * (1 - (local - 104) / 16) * 14
+      : 0;
   return (
-    <AbsoluteFill style={{ opacity: vis(frame, KEYS), alignItems: "center" }}>
+    <AbsoluteFill
+      style={{
+        opacity: vis(frame, KEYS),
+        alignItems: "center",
+        transform: `scale(${breathe(local)}) translateX(${shake}px)`,
+      }}
+    >
       <div
         style={{
-          marginTop: 116,
+          marginTop: 150,
           fontFamily: FONTS.display,
-          fontSize: 62,
+          fontSize: 64,
           fontWeight: 700,
           letterSpacing: "-0.02em",
           color: "#fff",
@@ -505,7 +669,7 @@ const SKeys: React.FC = () => {
         <br />
         words vs the <span style={{ color: CYAN }}>job post.</span>
       </div>
-      <div style={{ marginTop: 56, display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ marginTop: 60, display: "flex", flexDirection: "column", gap: 18 }}>
         {KW.map((k) => {
           const s = spring({
             frame: local - k.d,
@@ -520,21 +684,22 @@ const SKeys: React.FC = () => {
                 opacity: interpolate(s, [0, 0.5], [0, 1], {
                   extrapolateRight: "clamp",
                 }),
-                transform: `translateY(${(1 - s) * 30}px)`,
-                width: 600,
+                transform: `translateY(${(1 - s) * 30}px) scale(${0.96 + s * 0.04})`,
+                width: 760,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "16px 30px",
-                borderRadius: 14,
+                padding: "20px 36px",
+                borderRadius: 16,
                 background: "rgba(255,255,255,0.05)",
-                border: `1px solid ${c}55`,
+                border: `1px solid ${c}66`,
+                boxShadow: k.ok ? "none" : `0 0 20px ${MRED}22`,
               }}
             >
               <span
                 style={{
                   fontFamily: FONTS.body,
-                  fontSize: 34,
+                  fontSize: 38,
                   fontWeight: 600,
                   color: "#fff",
                 }}
@@ -544,7 +709,7 @@ const SKeys: React.FC = () => {
               <span
                 style={{
                   fontFamily: FONTS.mono,
-                  fontSize: 26,
+                  fontSize: 28,
                   fontWeight: 700,
                   color: c,
                 }}
@@ -555,28 +720,35 @@ const SKeys: React.FC = () => {
           );
         })}
       </div>
-      <div style={{ marginTop: 60, position: "relative" }}>
-        <MatchMeter pct={pct} passed={false} />
+      <div style={{ marginTop: 70, position: "relative" }}>
+        <Meter
+          pct={pct}
+          col={MRED}
+          dimCol={MDIM}
+          trackBg="rgba(255,255,255,0.08)"
+        />
       </div>
       <div
         style={{
-          marginTop: 80,
+          marginTop: 96,
           opacity: interpolate(stampPop, [0, 0.5], [0, 1], {
             extrapolateRight: "clamp",
           }),
           transform: `scale(${0.7 + stampPop * 0.3}) rotate(-4deg)`,
-          padding: "14px 44px",
-          borderRadius: 14,
-          background: `${MRED}1f`,
-          border: `3px solid ${MRED}`,
-          fontFamily: FONTS.display,
-          fontSize: 44,
-          fontWeight: 700,
-          color: MRED,
-          letterSpacing: "0.04em",
         }}
       >
-        FILTERED OUT
+        <div
+          style={{
+            padding: "16px 52px",
+            borderRadius: 16,
+            background: `${MRED}1f`,
+            border: `3px solid ${MRED}`,
+          }}
+        >
+          <Glitch on={stampPop > 0.3} size={50} color={MRED}>
+            FILTERED OUT
+          </Glitch>
+        </div>
       </div>
     </AbsoluteFill>
   );
@@ -592,14 +764,25 @@ const SFix: React.FC = () => {
     extrapolateRight: "clamp",
   });
   const passed = pct >= 75;
+  const passPop = spring({
+    frame: local - 86,
+    fps,
+    config: { damping: 11, mass: 0.5 },
+  });
   const fixers = ["Kubernetes", "GraphQL", "CI/CD"];
   return (
-    <AbsoluteFill style={{ opacity: vis(frame, FIX), alignItems: "center" }}>
+    <AbsoluteFill
+      style={{
+        opacity: vis(frame, FIX),
+        alignItems: "center",
+        transform: `scale(${breathe(local)})`,
+      }}
+    >
       <div
         style={{
-          marginTop: 130,
+          marginTop: 168,
           fontFamily: FONTS.display,
-          fontSize: 66,
+          fontSize: 68,
           fontWeight: 700,
           letterSpacing: "-0.03em",
           color: RB.ink,
@@ -608,9 +791,9 @@ const SFix: React.FC = () => {
       >
         ResuBird shows you
         <br />
-        <span style={RB_GRADIENT_TEXT}>what's missing.</span>
+        <span style={RB_GRADIENT_TEXT}>what&apos;s missing.</span>
       </div>
-      <div style={{ marginTop: 60, display: "flex", gap: 18 }}>
+      <div style={{ marginTop: 70, display: "flex", gap: 20 }}>
         {fixers.map((w, i) => {
           const s = spring({
             frame: local - 24 - i * 12,
@@ -624,13 +807,13 @@ const SFix: React.FC = () => {
                 opacity: interpolate(s, [0, 0.5], [0, 1], {
                   extrapolateRight: "clamp",
                 }),
-                transform: `scale(${0.7 + s * 0.3})`,
-                padding: "14px 28px",
+                transform: `scale(${0.6 + s * 0.4})`,
+                padding: "16px 32px",
                 borderRadius: 999,
                 background: `${RB.green}18`,
                 border: `1px solid ${RB.green}66`,
                 fontFamily: FONTS.body,
-                fontSize: 30,
+                fontSize: 34,
                 fontWeight: 700,
                 color: RB.green,
               }}
@@ -640,111 +823,30 @@ const SFix: React.FC = () => {
           );
         })}
       </div>
-      <div style={{ marginTop: 80, color: RB.ink }}>
-        <FixMeter pct={pct} passed={passed} />
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-// warm variant of the meter
-const FixMeter: React.FC<{ pct: number; passed: boolean }> = ({
-  pct,
-  passed,
-}) => {
-  const W = 760;
-  const passX = W * 0.75;
-  const col = passed ? RB.green : RB.amber;
-  return (
-    <div style={{ width: W }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          marginBottom: 14,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: FONTS.mono,
-            fontSize: 22,
-            letterSpacing: "0.16em",
-            color: RB.dim,
-          }}
-        >
-          KEYWORD MATCH
-        </span>
-        <span
-          style={{
-            fontFamily: FONTS.display,
-            fontSize: 58,
-            fontWeight: 700,
-            color: col,
-            fontVariantNumeric: "tabular-nums",
-            lineHeight: 1,
-          }}
-        >
-          {Math.round(pct)}%
-        </span>
-      </div>
-      <div
-        style={{
-          position: "relative",
-          height: 26,
-          borderRadius: 99,
-          background: `${RB.ink}12`,
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            width: `${pct}%`,
-            height: "100%",
-            borderRadius: 99,
-            background: col,
-            boxShadow: `0 0 20px ${col}88`,
-          }}
+      <div style={{ marginTop: 96, position: "relative" }}>
+        <Meter
+          pct={pct}
+          col={passed ? RB.green : RB.amber}
+          dimCol={RB.dim}
+          trackBg={`${RB.ink}12`}
         />
       </div>
       <div
         style={{
-          position: "absolute",
-          left: passX,
-          top: -6,
-          height: 64,
-          width: 0,
-          borderLeft: `2px dashed ${RB.dim}`,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          left: passX - 60,
-          top: 64,
-          fontFamily: FONTS.mono,
-          fontSize: 17,
-          color: RB.dim,
-          letterSpacing: "0.1em",
+          marginTop: 130,
+          opacity: interpolate(passPop, [0, 0.5], [0, 1], {
+            extrapolateRight: "clamp",
+          }),
+          transform: `scale(${0.7 + passPop * 0.3})`,
+          fontFamily: FONTS.display,
+          fontSize: 52,
+          fontWeight: 700,
+          color: RB.green,
         }}
       >
-        PASS · 75%
+        ✓ Passes the screen
       </div>
-      {passed && (
-        <div
-          style={{
-            marginTop: 96,
-            textAlign: "center",
-            fontFamily: FONTS.display,
-            fontSize: 40,
-            fontWeight: 700,
-            color: RB.green,
-          }}
-        >
-          ✓ Passes the screen
-        </div>
-      )}
-    </div>
+    </AbsoluteFill>
   );
 };
 
@@ -774,8 +876,8 @@ const SCTA: React.FC = () => {
     >
       <div
         style={{
-          width: 170,
-          height: 170,
+          width: 190,
+          height: 190,
           transform: `scale(${logo})`,
           filter: `drop-shadow(0 16px 32px ${RB.orange}55)`,
         }}
@@ -785,13 +887,13 @@ const SCTA: React.FC = () => {
       <div
         style={{
           fontFamily: FONTS.display,
-          fontSize: 88,
+          fontSize: 100,
           fontWeight: 700,
           letterSpacing: "-0.03em",
           color: RB.ink,
-          marginTop: 36,
+          marginTop: 40,
           textAlign: "center",
-          lineHeight: 1.08,
+          lineHeight: 1.06,
           opacity: interpolate(logo, [0.4, 1], [0, 1], {
             extrapolateLeft: "clamp",
           }),
@@ -803,15 +905,15 @@ const SCTA: React.FC = () => {
       </div>
       <div
         style={{
-          marginTop: 60,
+          marginTop: 64,
           opacity: interpolate(btn, [0, 0.5], [0, 1], {
             extrapolateRight: "clamp",
           }),
           transform: `translateY(${(1 - btn) * 40}px)`,
-          padding: "28px 58px",
+          padding: "30px 62px",
           borderRadius: 999,
           fontFamily: FONTS.display,
-          fontSize: 44,
+          fontSize: 46,
           fontWeight: 700,
           color: "#fff",
           background: `linear-gradient(100deg, ${RB.orange}, #ea580c)`,
@@ -835,6 +937,28 @@ const SCTA: React.FC = () => {
   );
 };
 
+// status line per phase for the HUD
+const StatusBar: React.FC = () => {
+  const frame = useCurrentFrame();
+  const status =
+    frame < PARSE[0]
+      ? "READING FILE"
+      : frame < KEYS[0]
+        ? "PARSING FIELDS"
+        : "MATCHING KEYWORDS";
+  return <Hud status={status} />;
+};
+
+const Sfx: React.FC<{ src: string; from: number; volume?: number }> = ({
+  src,
+  from,
+  volume = 0.6,
+}) => (
+  <Sequence from={from}>
+    <Audio src={staticFile(`audio/sfx/${src}`)} volume={volume} />
+  </Sequence>
+);
+
 export const Ghosted: React.FC = () => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
@@ -851,11 +975,12 @@ export const Ghosted: React.FC = () => {
           interpolate(
             f,
             [0, 24, FIX[0], FIX[0] + 30, durationInFrames - 50, durationInFrames - 8],
-            [0, 0.07, 0.07, 0.14, 0.14, 0],
+            [0, 0.08, 0.08, 0.16, 0.16, 0],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           )
         }
       />
+      {/* VO */}
       <Sequence from={6}>
         <Audio src={staticFile("audio/gh1.wav")} volume={1} />
       </Sequence>
@@ -874,6 +999,20 @@ export const Ghosted: React.FC = () => {
       <Sequence from={714}>
         <Audio src={staticFile("audio/gh6.wav")} volume={1} />
       </Sequence>
+      {/* SFX */}
+      <Sfx src="whoosh.wav" from={22} volume={0.5} />
+      <Sfx src="blip.wav" from={268} />
+      <Sfx src="blip.wav" from={284} />
+      <Sfx src="blip.wav" from={300} />
+      <Sfx src="error.wav" from={344} volume={0.55} />
+      <Sfx src="blip.wav" from={424} />
+      <Sfx src="blip.wav" from={434} />
+      <Sfx src="blip.wav" from={444} />
+      <Sfx src="blip.wav" from={454} />
+      <Sfx src="blip.wav" from={464} />
+      <Sfx src="error.wav" from={512} volume={0.6} />
+      <Sfx src="riser.wav" from={612} volume={0.5} />
+      <Sfx src="success.wav" from={660} volume={0.6} />
 
       <LightBackdrop />
       <AbsoluteFill style={{ opacity: machineOut }}>
@@ -885,6 +1024,7 @@ export const Ghosted: React.FC = () => {
       <SKeys />
       <SFix />
       <SCTA />
+      <StatusBar />
     </AbsoluteFill>
   );
 };
