@@ -22,6 +22,7 @@ import { ResumeRace, RACE_DURATION } from "./promo/resubird/ResumeRace";
 import { Ghosted, GHOST_DURATION } from "./promo/resubird/Ghosted";
 import { ProveReal, PROVEREAL_DURATION } from "./promo/ProveReal";
 import { YupchaScreens, SCREENS_DURATION } from "./promo/YupchaScreens";
+import { Interval, INTERVAL_DURATION } from "./promo/Interval";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -137,6 +138,14 @@ export const RemotionRoot: React.FC = () => {
         durationInFrames={SCREENS_DURATION}
         width={1080}
         height={1920}
+      />
+      <Composition
+        id="Interval"
+        component={Interval}
+        fps={30}
+        durationInFrames={INTERVAL_DURATION}
+        width={1920}
+        height={1080}
       />
     </>
   );
