@@ -8,68 +8,53 @@ import {
   Sequence,
   staticFile,
   useCurrentFrame,
-  useVideoConfig,
 } from "remotion";
 import "@fontsource-variable/inter";
+import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/jetbrains-mono";
 import { FONTS } from "./theme";
 
-export const INTERVAL_DURATION = 2680; // ~89s @ 30fps (retro-teaser pacing)
+export const INTERVAL_DURATION = 2360; // ~78.7s @ 30fps
 
 const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const OUT = Easing.bezier(0.4, 0, 1, 1);
 const WHITE = "#f5f5f7";
-const DIM = "#8a8f99";
+const DIM = "#9a9fa9";
 const CYAN = "#34d3ee";
 const RED = "#fb5e6e";
 const GREEN = "#34e3a0";
 const WARM = "#ffb066";
+const BARH = 132; // letterbox bar height -> ~2.4:1
 
-// phase windows — stretched holds for trailer pacing
-const COLD: [number, number] = [0, 270];
-const PROBLEM: [number, number] = [270, 560];
-const INVERT: [number, number] = [560, 880];
-const AGENT: [number, number] = [880, 1150];
-const PARALLEL: [number, number] = [1150, 1470];
-const CHEAT: [number, number] = [1470, 1780];
-const JUDGE: [number, number] = [1780, 2070];
-const DAWN: [number, number] = [2070, 2400];
-const END: [number, number] = [2400, 2680];
+const yf = (n: string) => staticFile(`yupcha/${n}`);
 
-// scene crossfade (through black) — slower for grandeur
-const sceneO = (frame: number, [s, e]: [number, number], fade = 30) =>
-  Math.min(
-    interpolate(frame, [s, s + fade], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: EASE,
-    }),
-    interpolate(frame, [e - fade, e], [1, 0], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: OUT,
-    }),
-  );
+// phase windows
+const COLD: [number, number] = [0, 230];
+const PROBLEM: [number, number] = [230, 470];
+const INVERT: [number, number] = [470, 740];
+const AGENT: [number, number] = [740, 980];
+const PARALLEL: [number, number] = [980, 1290];
+const CHEAT: [number, number] = [1290, 1560];
+const JUDGE: [number, number] = [1560, 1820];
+const DAWN: [number, number] = [1820, 2120];
+const END: [number, number] = [2120, 2360];
 
-// statement line: blur + scale settle in, fade out
-const line = (local: number, inAt: number, holdTo: number) => {
-  const o = Math.min(
-    interpolate(local, [inAt, inAt + 40], [0, 1], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: EASE,
-    }),
-    interpolate(local, [holdTo, holdTo + 30], [1, 0], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: OUT,
-    }),
-  );
-  const blur = interpolate(local, [inAt, inAt + 40], [9, 0], {
+const ip = (f: number, a: number[], b: number[], e = EASE) =>
+  interpolate(f, a, b, {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
-    easing: EASE,
+    easing: e,
   });
+
+const sceneO = (frame: number, [s, e]: [number, number], fade = 16) =>
+  Math.min(ip(frame, [s, s + fade], [0, 1]), ip(frame, [e - fade, e], [1, 0], OUT));
+
+const line = (local: number, inAt: number, holdTo: number) => {
+  const o = Math.min(
+    ip(local, [inAt, inAt + 22], [0, 1]),
+    ip(local, [holdTo, holdTo + 18], [1, 0], OUT),
+  );
+  const blur = ip(local, [inAt, inAt + 22], [10, 0]);
   return { opacity: o, filter: `blur(${blur}px)` };
 };
 
@@ -78,131 +63,185 @@ const hash = (i: number) => {
   return x - Math.floor(x);
 };
 
-const Void: React.FC<{ warm?: number }> = ({ warm = 0 }) => (
-  <AbsoluteFill style={{ background: "#000" }}>
-    <AbsoluteFill
-      style={{
-        background:
-          "radial-gradient(ellipse 70% 50% at 50% 45%, #0e1016 0%, #000 72%)",
-      }}
-    />
-    {warm > 0 && (
+const GRAIN = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.7'/%3E%3C/svg%3E")`;
+
+// ——— global overlays: grain, scanlines, vignette, letterbox ———
+const Overlays: React.FC = () => {
+  const frame = useCurrentFrame();
+  const barIn = ip(frame, [0, 22], [BARH + 20, 0]);
+  return (
+    <>
       <AbsoluteFill
         style={{
-          opacity: warm,
-          background:
-            "radial-gradient(ellipse 90% 70% at 50% 120%, rgba(255,150,70,0.4) 0%, transparent 60%)",
+          backgroundImage: GRAIN,
+          backgroundPosition: `${(frame * 13) % 220}px ${(frame * 7) % 220}px`,
+          opacity: 0.06,
+          mixBlendMode: "overlay",
+          pointerEvents: "none",
         }}
       />
-    )}
-  </AbsoluteFill>
-);
-
-// ——— 1: cold open — the clock ———
-const SCold: React.FC = () => {
-  const frame = useCurrentFrame();
-  const local = frame - COLD[0];
-  const n = Math.round(
-    interpolate(local, [16, 50], [0, 42], {
-      extrapolateLeft: "clamp",
-      extrapolateRight: "clamp",
-      easing: EASE,
-    }),
-  );
-  const numO = interpolate(local, [16, 46], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const sub = line(local, 70, 230);
-  return (
-    <AbsoluteFill style={{ opacity: sceneO(frame, COLD) }}>
       <AbsoluteFill
         style={{
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
+          backgroundImage:
+            "repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 2px, transparent 4px)",
+          opacity: 0.4,
+          pointerEvents: "none",
         }}
-      >
-        <div
-          style={{
-            fontFamily: FONTS.body,
-            fontSize: 300,
-            fontWeight: 200,
-            color: WHITE,
-            letterSpacing: "-0.04em",
-            opacity: numO,
-            fontVariantNumeric: "tabular-nums",
-            lineHeight: 1,
-          }}
-        >
-          {n}
-        </div>
-        <div
-          style={{
-            ...sub,
-            fontFamily: FONTS.mono,
-            fontSize: 28,
-            letterSpacing: "0.4em",
-            color: DIM,
-            marginTop: 30,
-          }}
-        >
-          DAYS TO DECIDE
-        </div>
+      />
+      <AbsoluteFill
+        style={{
+          background:
+            "radial-gradient(ellipse 75% 70% at 50% 50%, transparent 45%, rgba(0,0,0,0.65) 100%)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: BARH,
+          background: "#000",
+          transform: `translateY(${-barIn}px)`,
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: BARH,
+          background: "#000",
+          transform: `translateY(${barIn}px)`,
+        }}
+      />
+    </>
+  );
+};
+
+const Chroma: React.FC<{
+  children: React.ReactNode;
+  amt: number;
+  style?: React.CSSProperties;
+}> = ({ children, amt, style }) => (
+  <div style={{ ...style, textShadow: `${amt}px 0 ${RED}cc, ${-amt}px 0 ${CYAN}cc` }}>
+    {children}
+  </div>
+);
+
+const Plate: React.FC<{
+  children: React.ReactNode;
+  zoom: [number, number];
+  pan?: [number, number];
+  local: number;
+  dur: number;
+}> = ({ children, zoom, pan = [0, 0], local, dur }) => {
+  const z = ip(local, [0, dur], zoom);
+  const px = ip(local, [0, dur], [pan[0], pan[1]]);
+  return (
+    <AbsoluteFill style={{ overflow: "hidden" }}>
+      <AbsoluteFill style={{ transform: `scale(${z}) translateX(${px}px)` }}>
+        {children}
       </AbsoluteFill>
     </AbsoluteFill>
   );
 };
 
-// ——— 2: problem — gone in ten ———
+const Center: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({
+  children,
+  style,
+}) => (
+  <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", ...style }}>
+    {children}
+  </AbsoluteFill>
+);
+
+const NARR: React.CSSProperties = {
+  fontFamily: FONTS.body,
+  fontWeight: 250,
+  letterSpacing: "-0.02em",
+  color: WHITE,
+  textAlign: "center",
+  lineHeight: 1.22,
+};
+
+// ——— 1: cold open ———
+const SCold: React.FC = () => {
+  const frame = useCurrentFrame();
+  const local = frame - COLD[0];
+  const n = Math.round(ip(local, [14, 44], [0, 42]));
+  const numO = ip(local, [14, 40], [0, 1]);
+  const ca = 1 + Math.abs(Math.sin(local / 7)) * (local < 50 ? 4 : 1.4);
+  const z = ip(local, [0, 230], [1.0, 1.12]);
+  const sub = line(local, 56, 200);
+  return (
+    <AbsoluteFill style={{ opacity: sceneO(frame, COLD) }}>
+      <Center>
+        <div style={{ transform: `scale(${z})`, textAlign: "center" }}>
+          <Chroma
+            amt={ca}
+            style={{
+              fontFamily: FONTS.body,
+              fontSize: 320,
+              fontWeight: 200,
+              color: WHITE,
+              letterSpacing: "-0.04em",
+              opacity: numO,
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1,
+            }}
+          >
+            {n}
+          </Chroma>
+          <div
+            style={{
+              ...sub,
+              fontFamily: FONTS.mono,
+              fontSize: 30,
+              letterSpacing: "0.42em",
+              color: DIM,
+              marginTop: 34,
+            }}
+          >
+            DAYS TO DECIDE
+          </div>
+        </div>
+      </Center>
+    </AbsoluteFill>
+  );
+};
+
+// ——— 2: problem — a real face, gone in ten ———
 const SProblem: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - PROBLEM[0];
   const W = 1100;
-  const fill = interpolate(local, [30, 120], [0, 10 / 42], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const markO = interpolate(local, [110, 140], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const l1 = line(local, 24, 270);
+  const fill = ip(local, [40, 130], [0, 10 / 42]);
+  const markO = ip(local, [120, 150], [0, 1]);
+  const l1 = line(local, 150, 230);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, PROBLEM) }}>
-      <AbsoluteFill
-        style={{
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-        }}
-      >
-        <div
+      <Plate local={local} dur={240} zoom={[1.05, 1.18]} pan={[-30, 30]}>
+        <Img
+          src={yf("candidate2.jpeg")}
           style={{
-            ...l1,
-            fontFamily: FONTS.body,
-            fontSize: 74,
-            fontWeight: 250,
-            color: WHITE,
-            textAlign: "center",
-            letterSpacing: "-0.02em",
-            marginBottom: 80,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "grayscale(0.4) brightness(0.5)",
           }}
-        >
-          Your best candidate
-          <br />
-          is gone in <span style={{ color: RED, fontWeight: 400 }}>ten.</span>
+        />
+      </Plate>
+      <AbsoluteFill style={{ background: "rgba(2,5,14,0.55)" }} />
+      <Center style={{ flexDirection: "column", paddingTop: 80 }}>
+        <div style={{ ...l1, ...NARR, fontSize: 80, marginBottom: 70 }}>
+          Gone in <span style={{ color: RED, fontWeight: 400 }}>ten.</span>
         </div>
         <div style={{ width: W, position: "relative" }}>
           <div
-            style={{
-              height: 3,
-              background: "rgba(255,255,255,0.12)",
-              borderRadius: 99,
-            }}
+            style={{ height: 3, background: "rgba(255,255,255,0.18)", borderRadius: 99 }}
           />
           <div
             style={{
@@ -213,7 +252,7 @@ const SProblem: React.FC = () => {
               width: W * fill,
               background: RED,
               borderRadius: 99,
-              boxShadow: `0 0 14px ${RED}`,
+              boxShadow: `0 0 16px ${RED}`,
             }}
           />
           <div
@@ -226,15 +265,15 @@ const SProblem: React.FC = () => {
               borderRadius: 99,
               background: RED,
               opacity: markO,
-              boxShadow: `0 0 18px ${RED}`,
+              boxShadow: `0 0 20px ${RED}`,
             }}
           />
           <div
             style={{
               position: "absolute",
-              top: 24,
-              left: W * fill - 90,
-              width: 180,
+              top: 22,
+              left: W * fill - 100,
+              width: 200,
               textAlign: "center",
               fontFamily: FONTS.mono,
               fontSize: 19,
@@ -245,186 +284,132 @@ const SProblem: React.FC = () => {
           >
             ACCEPTED ELSEWHERE
           </div>
-          <div
-            style={{
-              position: "absolute",
-              top: -42,
-              left: 0,
-              fontFamily: FONTS.mono,
-              fontSize: 18,
-              color: DIM,
-            }}
-          >
-            DAY 1
-          </div>
-          <div
-            style={{
-              position: "absolute",
-              top: -42,
-              right: 0,
-              fontFamily: FONTS.mono,
-              fontSize: 18,
-              color: DIM,
-            }}
-          >
-            DAY 42
-          </div>
         </div>
-      </AbsoluteFill>
+      </Center>
     </AbsoluteFill>
   );
 };
 
-// ——— 3: inversion — 42 days becomes 1 night ———
+// ——— 3: inversion — 42 -> 1 with a camera turn ———
 const SInvert: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - INVERT[0];
-  const q = line(local, 16, 110);
-  // number collapses 42 -> 1
-  const n = interpolate(local, [120, 175], [42, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const collapseO = interpolate(local, [120, 140], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const isNight = local > 172;
-  const label = line(local, 178, 320);
+  const q = line(local, 14, 96);
+  const n = ip(local, [110, 158], [42, 1]);
+  const collapseO = ip(local, [108, 124], [0, 1]);
+  const turn = ip(local, [108, 170], [14, 0]);
+  const isNight = local > 156;
+  const label = line(local, 162, 250);
+  const ca = local > 150 && local < 175 ? 6 : 1.4;
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, INVERT) }}>
-      <AbsoluteFill
-        style={{
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-        }}
-      >
-        {local < 118 ? (
-          <div
-            style={{
-              ...q,
-              fontFamily: FONTS.body,
-              fontSize: 70,
-              fontWeight: 250,
-              color: WHITE,
-              textAlign: "center",
-              letterSpacing: "-0.02em",
-            }}
-          >
+      <Center>
+        {local < 104 ? (
+          <div style={{ ...q, ...NARR, fontSize: 74 }}>
             What if the wait
             <br />
             wasn&apos;t a month.
           </div>
         ) : (
-          <>
-            <div
+          <div
+            style={{
+              textAlign: "center",
+              transform: `rotate(${turn}deg) scale(${ip(local, [108, 170], [1.3, 1])})`,
+            }}
+          >
+            <Chroma
+              amt={ca}
               style={{
                 fontFamily: FONTS.body,
-                fontSize: 300,
+                fontSize: 330,
                 fontWeight: 200,
                 color: isNight ? CYAN : WHITE,
                 letterSpacing: "-0.04em",
                 opacity: collapseO,
                 fontVariantNumeric: "tabular-nums",
                 lineHeight: 1,
-                textShadow: isNight ? `0 0 60px ${CYAN}66` : "none",
+                textShadow: isNight ? `0 0 70px ${CYAN}66` : undefined,
               }}
             >
               {Math.round(n)}
-            </div>
+            </Chroma>
             <div
               style={{
                 ...label,
                 fontFamily: FONTS.mono,
-                fontSize: 28,
-                letterSpacing: "0.4em",
+                fontSize: 30,
+                letterSpacing: "0.42em",
                 color: CYAN,
                 marginTop: 30,
               }}
             >
-              SINGLE NIGHT
+              ONE NIGHT
             </div>
-          </>
+          </div>
         )}
-      </AbsoluteFill>
+      </Center>
     </AbsoluteFill>
   );
 };
 
-// ——— 4: the agent — one light ———
+// ——— 4: the agent — real Yupcha footage ———
 const SAgent: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - AGENT[0];
-  const glow = interpolate(local, [10, 80], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const pulse = 0.85 + Math.sin(local / 16) * 0.15;
   const lines = ["It doesn't wait.", "It doesn't sleep.", "It doesn't guess."];
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, AGENT) }}>
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-        <div
+      <Plate local={local} dur={240} zoom={[1.12, 1.26]} pan={[20, -30]}>
+        <Img
+          src={yf("dashboard.webp")}
           style={{
-            width: 26 * glow,
-            height: 26 * glow,
-            borderRadius: 99,
-            background: WHITE,
-            boxShadow: `0 0 ${80 * pulse * glow}px ${20 * glow}px ${CYAN}aa`,
-            opacity: glow,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.85) saturate(1.1)",
           }}
         />
-      </AbsoluteFill>
-      <AbsoluteFill
-        style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 200 }}
-      >
-        <div style={{ display: "flex", gap: 50 }}>
-          {lines.map((t, i) => {
-            const s = line(local, 90 + i * 30, 270);
-            return (
-              <div
-                key={t}
-                style={{
-                  ...s,
-                  fontFamily: FONTS.body,
-                  fontSize: 40,
-                  fontWeight: 300,
-                  color: WHITE,
-                  letterSpacing: "-0.01em",
-                }}
-              >
-                {t}
-              </div>
-            );
-          })}
-        </div>
-      </AbsoluteFill>
+      </Plate>
+      <AbsoluteFill style={{ background: "rgba(2,5,14,0.55)" }} />
+      <Center style={{ flexDirection: "column", gap: 26 }}>
+        {lines.map((t, i) => {
+          const s = line(local, 36 + i * 30, 220);
+          return (
+            <div
+              key={t}
+              style={{ ...s, fontFamily: FONTS.body, fontSize: 56, fontWeight: 300, color: WHITE }}
+            >
+              {t}
+            </div>
+          );
+        })}
+      </Center>
     </AbsoluteFill>
   );
 };
 
-// ——— 5: parallel — the constellation ———
+// ——— 5: parallel — constellation + real product/face cards ———
+const CARDS = [
+  { src: "interviewer.webp", x: 250, y: 250, w: 360, d: 30, rot: -5 },
+  { src: "dashboard.webp", x: 1320, y: 300, w: 380, d: 50, rot: 5 },
+  { src: "candidate_happy.webp", x: 360, y: 720, w: 240, d: 70, rot: 4 },
+  { src: "resubird.webp", x: 1300, y: 760, w: 360, d: 90, rot: -4 },
+];
+
 const SParallel: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - PARALLEL[0];
-  const N = 240;
-  const l1 = line(local, 50, 300);
+  const N = 200;
+  const pull = ip(local, [0, 310], [1.18, 0.96]);
+  const l1 = line(local, 60, 290);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, PARALLEL) }}>
-      <AbsoluteFill>
+      <AbsoluteFill style={{ transform: `scale(${pull})` }}>
         {Array.from({ length: N }).map((_, i) => {
           const x = hash(i + 1) * 1920;
           const y = hash(i + 100) * 1080;
-          const appear = interpolate(local, [10 + hash(i) * 70, 40 + hash(i) * 70], [0, 1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: EASE,
-          });
-          const tw = 0.4 + 0.6 * Math.abs(Math.sin(local / 20 + i));
+          const ap = ip(local, [8 + hash(i) * 60, 36 + hash(i) * 60], [0, 1]);
+          const tw = 0.4 + 0.6 * Math.abs(Math.sin(local / 18 + i));
           const sz = 2 + hash(i + 7) * 4;
           return (
             <div
@@ -437,228 +422,211 @@ const SParallel: React.FC = () => {
                 height: sz,
                 borderRadius: 99,
                 background: CYAN,
-                opacity: appear * tw * 0.8,
+                opacity: ap * tw * 0.75,
                 boxShadow: `0 0 ${sz * 2}px ${CYAN}`,
               }}
             />
           );
         })}
+        {CARDS.map((c) => {
+          const ap = ip(local, [c.d, c.d + 26], [0, 1]);
+          const drift = Math.sin(local / 30 + c.x) * 8;
+          return (
+            <div
+              key={c.src}
+              style={{
+                position: "absolute",
+                left: c.x,
+                top: c.y + drift,
+                width: c.w,
+                opacity: ap * 0.92,
+                transform: `rotate(${c.rot}deg) scale(${0.9 + ap * 0.1})`,
+                borderRadius: 12,
+                overflow: "hidden",
+                border: "1px solid rgba(255,255,255,0.1)",
+                boxShadow: "0 30px 70px rgba(0,0,0,0.6)",
+              }}
+            >
+              <Img src={yf(c.src)} style={{ width: "100%", display: "block" }} />
+            </div>
+          );
+        })}
       </AbsoluteFill>
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
-        <div
-          style={{
-            ...l1,
-            fontFamily: FONTS.body,
-            fontSize: 64,
-            fontWeight: 250,
-            color: WHITE,
-            textAlign: "center",
-            letterSpacing: "-0.02em",
-            lineHeight: 1.3,
-            textShadow: "0 2px 40px rgba(0,0,0,0.8)",
-          }}
-        >
-          While you sleep,
+      <Center>
+        <div style={{ ...l1, ...NARR, fontSize: 62, textShadow: "0 2px 50px rgba(0,0,0,0.9)" }}>
+          All of them.
           <br />
-          it&apos;s listening to
-          <br />
-          <span style={{ color: CYAN }}>all of them. At once.</span>
+          <span style={{ color: CYAN }}>At once.</span>
         </div>
-      </AbsoluteFill>
+      </Center>
     </AbsoluteFill>
   );
 };
 
-// ——— 6: anti-cheat — it knows ———
+// ——— 6: anti-cheat — scanning a real face ———
 const FLAGS = [
-  { t: "● SECOND SCREEN DETECTED", d: 70 },
-  { t: "● ChatGPT — open in background", d: 100 },
-  { t: "● TAB LEFT ×3 · 42s", d: 130 },
+  { t: "● SECOND SCREEN DETECTED", d: 60 },
+  { t: "● ChatGPT — open in background", d: 92 },
+  { t: "● TAB LEFT ×3 · 42s", d: 124 },
 ];
 
 const SCheat: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - CHEAT[0];
-  const reticle = interpolate(local, [14, 60], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const jitter = local > 66 ? Math.sin(local * 2.2) * 2 : 0;
-  const l1 = line(local, 175, 300);
+  const reticle = ip(local, [12, 54], [0, 1]);
+  const jitter = local > 60 ? Math.sin(local * 2.4) * 3 : 0;
+  const z = ip(local, [0, 270], [1.1, 1.22]);
+  const ca = local > 56 ? 3 + Math.abs(Math.sin(local / 5)) * 3 : 1;
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, CHEAT) }}>
-      <AbsoluteFill
-        style={{ justifyContent: "center", alignItems: "center", paddingTop: 60 }}
-      >
-        {/* reticle */}
-        <div
-          style={{
-            width: 380,
-            height: 380,
-            borderRadius: 99,
-            border: `2px solid ${RED}`,
-            opacity: reticle * 0.8,
-            transform: `translateX(${jitter}px) scale(${0.9 + reticle * 0.1})`,
-            boxShadow: `0 0 60px ${RED}33, inset 0 0 60px ${RED}22`,
-            position: "absolute",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            width: 460,
-            height: 1,
-            background: `${RED}55`,
-            opacity: reticle,
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            height: 460,
-            width: 1,
-            background: `${RED}55`,
-            opacity: reticle,
-          }}
-        />
-        {/* flag readouts */}
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, 280px)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            alignItems: "flex-start",
-          }}
-        >
-          {FLAGS.map((f) => {
-            const o = interpolate(local, [f.d, f.d + 16], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: EASE,
-            });
-            return (
-              <div
-                key={f.t}
-                style={{
-                  opacity: o,
-                  fontFamily: FONTS.mono,
-                  fontSize: 26,
-                  letterSpacing: "0.08em",
-                  color: RED,
-                }}
-              >
-                {f.t}
-              </div>
-            );
-          })}
-        </div>
+      <AbsoluteFill style={{ overflow: "hidden" }}>
+        <AbsoluteFill style={{ transform: `scale(${z}) translateX(${jitter}px)` }}>
+          <Img
+            src={yf("candidate2.jpeg")}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: "grayscale(0.5) brightness(0.55) contrast(1.1)",
+            }}
+          />
+        </AbsoluteFill>
       </AbsoluteFill>
-      <AbsoluteFill
-        style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 150 }}
-      >
+      <AbsoluteFill style={{ background: "rgba(20,2,6,0.45)" }} />
+      <Center>
         <div
           style={{
-            ...l1,
-            fontFamily: FONTS.body,
-            fontSize: 60,
-            fontWeight: 250,
-            color: WHITE,
-            textAlign: "center",
-            letterSpacing: "-0.02em",
+            width: 360,
+            height: 440,
+            border: `2px solid ${RED}`,
+            borderRadius: 8,
+            opacity: reticle * 0.85,
+            transform: `translateX(${jitter}px) scale(${0.92 + reticle * 0.08})`,
+            boxShadow: `0 0 60px ${RED}44, inset 0 0 50px ${RED}22`,
+            position: "absolute",
           }}
+        />
+        <div
+          style={{ position: "absolute", width: 440, height: 1, background: `${RED}66`, opacity: reticle }}
+        />
+        <div
+          style={{ position: "absolute", height: 520, width: 1, background: `${RED}66`, opacity: reticle }}
+        />
+      </Center>
+      <AbsoluteFill
+        style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: BARH + 40 }}
+      >
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start", marginBottom: 30 }}
         >
+          {FLAGS.map((f) => (
+            <div
+              key={f.t}
+              style={{
+                opacity: ip(local, [f.d, f.d + 14], [0, 1]),
+                fontFamily: FONTS.mono,
+                fontSize: 26,
+                letterSpacing: "0.06em",
+                color: RED,
+              }}
+            >
+              {f.t}
+            </div>
+          ))}
+        </div>
+        <Chroma amt={ca} style={{ ...NARR, fontSize: 62 }}>
           It knows when the
           <br />
-          machine is <span style={{ color: RED }}>helping you.</span>
-        </div>
+          machine is <span style={{ color: RED, fontWeight: 400 }}>helping you.</span>
+        </Chroma>
       </AbsoluteFill>
     </AbsoluteFill>
   );
 };
 
-// ——— 7: judgment — the name dissolves ———
-const IDENT = ["Name", "Photo", "School", "Age"];
+// ——— 7: judgment — identity dissolves off a real face ———
+const IDENT = [
+  { k: "Name", x: -360, y: -150 },
+  { k: "Photo", x: 360, y: -90 },
+  { k: "School", x: -380, y: 120 },
+  { k: "Age", x: 360, y: 170 },
+];
 
 const SJudge: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - JUDGE[0];
-  const keepO = interpolate(local, [120, 160], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const l1 = line(local, 165, 290);
+  const faceO = ip(local, [10, 50], [0, 1]);
+  const desat = ip(local, [70, 160], [0, 1]);
+  const keepO = ip(local, [150, 195], [0, 1]);
+  const l1 = line(local, 180, 250);
+  const z = ip(local, [0, 260], [1.05, 1.14]);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, JUDGE) }}>
-      <AbsoluteFill
-        style={{
-          justifyContent: "center",
-          alignItems: "center",
-          flexDirection: "column",
-          gap: 22,
-        }}
-      >
-        {IDENT.map((id, i) => {
-          const appear = interpolate(local, [10 + i * 8, 30 + i * 8], [0, 1], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: EASE,
-          });
-          const dissolve = interpolate(
-            local,
-            [70 + i * 10, 110 + i * 10],
-            [1, 0],
-            { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: OUT },
-          );
-          const drift = interpolate(local, [70 + i * 10, 110 + i * 10], [0, -40], {
-            extrapolateLeft: "clamp",
-            extrapolateRight: "clamp",
-            easing: OUT,
-          });
-          return (
+      <Center>
+        <div
+          style={{
+            width: 420,
+            height: 420,
+            borderRadius: 99,
+            overflow: "hidden",
+            opacity: faceO,
+            transform: `scale(${z})`,
+            border: "1px solid rgba(255,255,255,0.12)",
+            boxShadow: "0 0 80px rgba(0,0,0,0.7)",
+          }}
+        >
+          <Img
+            src={yf("candidate_happy.webp")}
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              filter: `grayscale(${desat}) brightness(0.9)`,
+            }}
+          />
+        </div>
+      </Center>
+      {IDENT.map((id, i) => {
+        const ap = ip(local, [20 + i * 8, 44 + i * 8], [0, 1]);
+        const diss = ip(local, [70 + i * 10, 120 + i * 10], [1, 0], OUT);
+        const fly = ip(local, [70 + i * 10, 120 + i * 10], [0, id.y < 0 ? -60 : 60]);
+        return (
+          <Center key={id.k}>
             <div
-              key={id}
               style={{
-                opacity: appear * dissolve,
-                transform: `translateY(${drift}px)`,
-                filter: `blur(${(1 - dissolve) * 6}px)`,
+                position: "absolute",
+                transform: `translate(${id.x}px, ${id.y + fly}px)`,
+                opacity: ap * diss,
+                filter: `blur(${(1 - diss) * 6}px)`,
                 fontFamily: FONTS.mono,
-                fontSize: 34,
-                letterSpacing: "0.12em",
+                fontSize: 30,
+                letterSpacing: "0.1em",
                 color: DIM,
               }}
             >
-              {id}: ————————
+              {id.k}: ——————
             </div>
-          );
-        })}
+          </Center>
+        );
+      })}
+      <AbsoluteFill
+        style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: BARH + 60 }}
+      >
         <div
           style={{
             opacity: keepO,
             transform: `scale(${0.96 + keepO * 0.04})`,
             fontFamily: FONTS.body,
-            fontSize: 76,
+            fontSize: 72,
             fontWeight: 300,
             color: WHITE,
             letterSpacing: "-0.02em",
-            marginTop: 10,
           }}
         >
           Only <span style={{ color: GREEN }}>how you think.</span>
         </div>
         <div
-          style={{
-            ...l1,
-            fontFamily: FONTS.body,
-            fontSize: 34,
-            fontWeight: 300,
-            color: DIM,
-          }}
+          style={{ ...l1, fontFamily: FONTS.body, fontSize: 32, fontWeight: 300, color: DIM, marginTop: 18 }}
         >
           It never hears your name.
         </div>
@@ -667,55 +635,53 @@ const SJudge: React.FC = () => {
   );
 };
 
-// ——— 8: daybreak — the answer ———
+// ——— 8: daybreak ———
 const TOP = ["Candidate 147", "Candidate 032", "Candidate 191"];
 
 const SDawn: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - DAWN[0];
-  const warm = interpolate(local, [40, 160], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const l1 = line(local, 30, 175);
-  const l2 = line(local, 195, 340);
+  const warm = ip(local, [40, 150], [0, 1]);
+  const z = ip(local, [0, 300], [1.15, 1.02]);
+  const l1 = line(local, 16, 150);
+  const l2 = line(local, 170, 280);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, DAWN) }}>
-      <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
+      <Plate local={local} dur={300} zoom={[1.15, 1.02]}>
+        <Img
+          src={yf("nature_bg.webp")}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            filter: "brightness(0.4) saturate(1.1)",
+            opacity: 0.5 + warm * 0.4,
+          }}
+        />
+      </Plate>
+      <AbsoluteFill
+        style={{
+          background: `linear-gradient(180deg, rgba(2,4,12,0.7), rgba(40,20,5,${0.2 + warm * 0.3}))`,
+        }}
+      />
+      <Center style={{ flexDirection: "column" }}>
         <div
           style={{
             ...l1,
-            fontFamily: FONTS.body,
+            ...NARR,
             fontSize: 66,
-            fontWeight: 250,
-            color: WHITE,
-            textAlign: "center",
-            letterSpacing: "-0.02em",
             position: "absolute",
-            top: 150,
+            top: BARH + 60,
+            transform: `scale(${z * 0.92 + 0.08})`,
           }}
         >
           By the time the sun
           <br />
-          finds you — it&apos;s <span style={{ color: WARM }}>done.</span>
+          finds you — it&apos;s <span style={{ color: WARM, fontWeight: 400 }}>done.</span>
         </div>
-        {/* ranked answer */}
-        <div
-          style={{
-            opacity: warm,
-            display: "flex",
-            flexDirection: "column",
-            gap: 16,
-            width: 720,
-          }}
-        >
+        <div style={{ opacity: warm, display: "flex", flexDirection: "column", gap: 14, width: 700 }}>
           {TOP.map((c, i) => {
-            const o = interpolate(local, [80 + i * 14, 110 + i * 14], [0, 1], {
-              extrapolateLeft: "clamp",
-              extrapolateRight: "clamp",
-              easing: EASE,
-            });
+            const o = ip(local, [80 + i * 14, 110 + i * 14], [0, 1]);
             return (
               <div
                 key={c}
@@ -724,42 +690,21 @@ const SDawn: React.FC = () => {
                   display: "flex",
                   alignItems: "center",
                   gap: 20,
-                  padding: "18px 28px",
-                  borderRadius: 14,
-                  background:
-                    i === 0 ? "rgba(255,176,102,0.14)" : "rgba(255,255,255,0.05)",
-                  border: `1px solid ${i === 0 ? WARM : "rgba(255,255,255,0.12)"}`,
+                  padding: "16px 26px",
+                  borderRadius: 12,
+                  background: i === 0 ? "rgba(255,176,102,0.16)" : "rgba(255,255,255,0.06)",
+                  border: `1px solid ${i === 0 ? WARM : "rgba(255,255,255,0.14)"}`,
+                  backdropFilter: "blur(6px)",
                 }}
               >
                 <span
-                  style={{
-                    fontFamily: FONTS.body,
-                    fontSize: 30,
-                    fontWeight: 600,
-                    color: i === 0 ? WARM : DIM,
-                    width: 40,
-                  }}
+                  style={{ fontFamily: FONTS.body, fontSize: 28, fontWeight: 600, color: i === 0 ? WARM : DIM, width: 36 }}
                 >
                   {i + 1}
                 </span>
+                <span style={{ flex: 1, fontFamily: FONTS.body, fontSize: 27, color: WHITE }}>{c}</span>
                 <span
-                  style={{
-                    flex: 1,
-                    fontFamily: FONTS.body,
-                    fontSize: 28,
-                    fontWeight: 400,
-                    color: WHITE,
-                  }}
-                >
-                  {c}
-                </span>
-                <span
-                  style={{
-                    fontFamily: FONTS.body,
-                    fontSize: 30,
-                    fontWeight: 600,
-                    color: i === 0 ? WARM : DIM,
-                  }}
+                  style={{ fontFamily: FONTS.body, fontSize: 28, fontWeight: 600, color: i === 0 ? WARM : DIM }}
                 >
                   {(4.9 - i * 0.2).toFixed(1)}
                 </span>
@@ -770,83 +715,55 @@ const SDawn: React.FC = () => {
         <div
           style={{
             ...l2,
-            position: "absolute",
-            bottom: 230,
             fontFamily: FONTS.body,
-            fontSize: 48,
+            fontSize: 46,
             fontWeight: 300,
             color: WHITE,
+            position: "absolute",
+            bottom: BARH + 70,
             letterSpacing: "-0.02em",
           }}
         >
           You wake up to the answer.
         </div>
-      </AbsoluteFill>
+      </Center>
     </AbsoluteFill>
   );
 };
 
-// ——— 9: end — the bloom ———
+// ——— 9: bloom ———
 const SEnd: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - END[0];
-  const o = interpolate(local, [0, 36], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const gray = interpolate(local, [44, 120], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const scale = interpolate(local, [0, 120], [0.88, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const nameO = interpolate(local, [95, 135], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const tagO = interpolate(local, [155, 200], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
-  const end = interpolate(local, [250, 280], [1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+  const o = ip(local, [0, 30], [0, 1]);
+  const gray = ip(local, [30, 96], [1, 0]);
+  const scale = ip(local, [0, 110], [0.9, 1]);
+  const nameO = ip(local, [70, 104], [0, 1]);
+  const tagO = ip(local, [120, 158], [0, 1]);
+  const end = ip(local, [200, 235], [1, 0]);
   return (
     <AbsoluteFill
-      style={{
-        opacity: end,
-        justifyContent: "center",
-        alignItems: "center",
-        flexDirection: "column",
-      }}
+      style={{ opacity: end, justifyContent: "center", alignItems: "center", flexDirection: "column" }}
     >
       <div
         style={{
-          width: 180,
-          height: 170,
+          width: 190,
+          height: 180,
           opacity: o,
           transform: `scale(${scale})`,
           filter: `grayscale(${gray}) brightness(${1 + gray * 0.4})`,
         }}
       >
-        <Img src={staticFile("yupcha/logo.svg")} style={{ width: "100%" }} />
+        <Img src={yf("logo.svg")} style={{ width: "100%" }} />
       </div>
       <div
         style={{
           fontFamily: FONTS.body,
-          fontSize: 80,
+          fontSize: 86,
           fontWeight: 500,
           letterSpacing: "-0.025em",
           color: WHITE,
-          marginTop: 40,
+          marginTop: 42,
           opacity: nameO,
         }}
       >
@@ -857,7 +774,7 @@ const SEnd: React.FC = () => {
           fontFamily: FONTS.mono,
           fontSize: 24,
           fontWeight: 500,
-          letterSpacing: "0.26em",
+          letterSpacing: "0.28em",
           color: DIM,
           marginTop: 22,
           opacity: tagO,
@@ -881,14 +798,6 @@ const Sfx: React.FC<{ src: string; from: number; volume?: number }> = ({
 );
 
 export const Interval: React.FC = () => {
-  const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
-  // Sky High instrumental from the top — it builds and peaks by daybreak/bloom on its own
-  const warm = interpolate(frame, [DAWN[0] + 40, DAWN[0] + 160], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: EASE,
-  });
   return (
     <AbsoluteFill style={{ fontFamily: FONTS.body, background: "#000" }}>
       <Audio
@@ -896,64 +805,63 @@ export const Interval: React.FC = () => {
         volume={(f) =>
           interpolate(
             f,
-            [0, 110, DAWN[0], END[0], durationInFrames - 70, durationInFrames - 10],
-            [0, 0.05, 0.05, 0.16, 0.16, 0],
+            [0, 90, DAWN[0], END[0], INTERVAL_DURATION - 70, INTERVAL_DURATION - 10],
+            [0, 0.06, 0.06, 0.17, 0.17, 0],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           )
         }
       />
       {/* VO */}
-      <Sequence from={60}>
+      <Sequence from={40}>
         <Audio src={staticFile("audio/iv1.wav")} volume={1} />
       </Sequence>
-      <Sequence from={310}>
+      <Sequence from={245}>
         <Audio src={staticFile("audio/iv2.wav")} volume={1} />
       </Sequence>
-      <Sequence from={610}>
+      <Sequence from={485}>
         <Audio src={staticFile("audio/iv3.wav")} volume={1} />
       </Sequence>
-      <Sequence from={930}>
+      <Sequence from={755}>
         <Audio src={staticFile("audio/iv4.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1210}>
+      <Sequence from={995}>
         <Audio src={staticFile("audio/iv5.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1540}>
+      <Sequence from={1305}>
         <Audio src={staticFile("audio/iv6.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1850}>
+      <Sequence from={1575}>
         <Audio src={staticFile("audio/iv7.wav")} volume={1} />
       </Sequence>
-      <Sequence from={2130}>
+      <Sequence from={1835}>
         <Audio src={staticFile("audio/iv8.wav")} volume={1} />
       </Sequence>
-      <Sequence from={2270}>
+      <Sequence from={1990}>
         <Audio src={staticFile("audio/iv9.wav")} volume={1} />
       </Sequence>
-      <Sequence from={2460}>
+      <Sequence from={2150}>
         <Audio src={staticFile("audio/iv10.wav")} volume={1} />
       </Sequence>
       {/* SFX */}
-      <Sfx src="tick.wav" from={30} volume={0.4} />
-      <Sfx src="boom.wav" from={730} volume={0.6} />
-      <Sfx src="whoosh.wav" from={1150} volume={0.4} />
-      <Sfx src="pulse.wav" from={1490} volume={0.45} />
-      <Sfx src="boom.wav" from={2090} volume={0.4} />
-      <Sfx src="riser.wav" from={2360} volume={0.4} />
-      <Sfx src="success.wav" from={2460} volume={0.45} />
+      <Sfx src="tick.wav" from={20} volume={0.4} />
+      <Sfx src="boom.wav" from={628} volume={0.65} />
+      <Sfx src="whoosh.wav" from={740} volume={0.4} />
+      <Sfx src="pulse.wav" from={1300} volume={0.45} />
+      <Sfx src="boom.wav" from={1820} volume={0.4} />
+      <Sfx src="riser.wav" from={2080} volume={0.4} />
+      <Sfx src="success.wav" from={2150} volume={0.45} />
 
-      <Void warm={warm} />
-      <AbsoluteFill style={{ transform: "scale(1.2)" }}>
-        <SCold />
-        <SProblem />
-        <SInvert />
-        <SAgent />
-        <SParallel />
-        <SCheat />
-        <SJudge />
-        <SDawn />
-        <SEnd />
-      </AbsoluteFill>
+      <SCold />
+      <SProblem />
+      <SInvert />
+      <SAgent />
+      <SParallel />
+      <SCheat />
+      <SJudge />
+      <SDawn />
+      <SEnd />
+
+      <Overlays />
     </AbsoluteFill>
   );
 };
