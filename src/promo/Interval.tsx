@@ -14,7 +14,7 @@ import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import { FONTS } from "./theme";
 
-export const INTERVAL_DURATION = 2130; // ~71s @ 30fps
+export const INTERVAL_DURATION = 2680; // ~89s @ 30fps (retro-teaser pacing)
 
 const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const OUT = Easing.bezier(0.4, 0, 1, 1);
@@ -25,19 +25,19 @@ const RED = "#fb5e6e";
 const GREEN = "#34e3a0";
 const WARM = "#ffb066";
 
-// phase windows
-const COLD: [number, number] = [0, 210];
-const PROBLEM: [number, number] = [210, 440];
-const INVERT: [number, number] = [440, 690];
-const AGENT: [number, number] = [690, 900];
-const PARALLEL: [number, number] = [900, 1150];
-const CHEAT: [number, number] = [1150, 1390];
-const JUDGE: [number, number] = [1390, 1620];
-const DAWN: [number, number] = [1620, 1900];
-const END: [number, number] = [1900, 2130];
+// phase windows — stretched holds for trailer pacing
+const COLD: [number, number] = [0, 270];
+const PROBLEM: [number, number] = [270, 560];
+const INVERT: [number, number] = [560, 880];
+const AGENT: [number, number] = [880, 1150];
+const PARALLEL: [number, number] = [1150, 1470];
+const CHEAT: [number, number] = [1470, 1780];
+const JUDGE: [number, number] = [1780, 2070];
+const DAWN: [number, number] = [2070, 2400];
+const END: [number, number] = [2400, 2680];
 
-// scene crossfade (through black)
-const sceneO = (frame: number, [s, e]: [number, number], fade = 22) =>
+// scene crossfade (through black) — slower for grandeur
+const sceneO = (frame: number, [s, e]: [number, number], fade = 30) =>
   Math.min(
     interpolate(frame, [s, s + fade], [0, 1], {
       extrapolateLeft: "clamp",
@@ -54,18 +54,18 @@ const sceneO = (frame: number, [s, e]: [number, number], fade = 22) =>
 // statement line: blur + scale settle in, fade out
 const line = (local: number, inAt: number, holdTo: number) => {
   const o = Math.min(
-    interpolate(local, [inAt, inAt + 30], [0, 1], {
+    interpolate(local, [inAt, inAt + 40], [0, 1], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
       easing: EASE,
     }),
-    interpolate(local, [holdTo, holdTo + 24], [1, 0], {
+    interpolate(local, [holdTo, holdTo + 30], [1, 0], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",
       easing: OUT,
     }),
   );
-  const blur = interpolate(local, [inAt, inAt + 30], [8, 0], {
+  const blur = interpolate(local, [inAt, inAt + 40], [9, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: EASE,
@@ -114,7 +114,7 @@ const SCold: React.FC = () => {
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const sub = line(local, 60, 150);
+  const sub = line(local, 70, 230);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, COLD) }}>
       <AbsoluteFill
@@ -170,7 +170,7 @@ const SProblem: React.FC = () => {
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const l1 = line(local, 18, 200);
+  const l1 = line(local, 24, 270);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, PROBLEM) }}>
       <AbsoluteFill
@@ -292,7 +292,7 @@ const SInvert: React.FC = () => {
     easing: EASE,
   });
   const isNight = local > 172;
-  const label = line(local, 178, 240);
+  const label = line(local, 178, 320);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, INVERT) }}>
       <AbsoluteFill
@@ -384,7 +384,7 @@ const SAgent: React.FC = () => {
       >
         <div style={{ display: "flex", gap: 50 }}>
           {lines.map((t, i) => {
-            const s = line(local, 70 + i * 26, 210);
+            const s = line(local, 90 + i * 30, 270);
             return (
               <div
                 key={t}
@@ -412,7 +412,7 @@ const SParallel: React.FC = () => {
   const frame = useCurrentFrame();
   const local = frame - PARALLEL[0];
   const N = 240;
-  const l1 = line(local, 30, 230);
+  const l1 = line(local, 50, 300);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, PARALLEL) }}>
       <AbsoluteFill>
@@ -485,7 +485,7 @@ const SCheat: React.FC = () => {
     easing: EASE,
   });
   const jitter = local > 66 ? Math.sin(local * 2.2) * 2 : 0;
-  const l1 = line(local, 158, 235);
+  const l1 = line(local, 175, 300);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, CHEAT) }}>
       <AbsoluteFill
@@ -592,7 +592,7 @@ const SJudge: React.FC = () => {
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const l1 = line(local, 150, 220);
+  const l1 = line(local, 165, 290);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, JUDGE) }}>
       <AbsoluteFill
@@ -678,8 +678,8 @@ const SDawn: React.FC = () => {
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const l1 = line(local, 20, 150);
-  const l2 = line(local, 165, 270);
+  const l1 = line(local, 30, 175);
+  const l2 = line(local, 195, 340);
   return (
     <AbsoluteFill style={{ opacity: sceneO(frame, DAWN) }}>
       <AbsoluteFill style={{ justifyContent: "center", alignItems: "center" }}>
@@ -795,27 +795,27 @@ const SEnd: React.FC = () => {
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const gray = interpolate(local, [34, 92], [1, 0], {
+  const gray = interpolate(local, [44, 120], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const scale = interpolate(local, [0, 90], [0.88, 1], {
+  const scale = interpolate(local, [0, 120], [0.88, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const nameO = interpolate(local, [70, 105], [0, 1], {
+  const nameO = interpolate(local, [95, 135], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const tagO = interpolate(local, [120, 158], [0, 1], {
+  const tagO = interpolate(local, [155, 200], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: EASE,
   });
-  const end = interpolate(local, [195, 225], [1, 0], {
+  const end = interpolate(local, [250, 280], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -896,62 +896,64 @@ export const Interval: React.FC = () => {
         volume={(f) =>
           interpolate(
             f,
-            [0, 80, DAWN[0], END[0], durationInFrames - 60, durationInFrames - 10],
+            [0, 110, DAWN[0], END[0], durationInFrames - 70, durationInFrames - 10],
             [0, 0.05, 0.05, 0.16, 0.16, 0],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           )
         }
       />
       {/* VO */}
-      <Sequence from={26}>
+      <Sequence from={60}>
         <Audio src={staticFile("audio/iv1.wav")} volume={1} />
       </Sequence>
-      <Sequence from={230}>
+      <Sequence from={310}>
         <Audio src={staticFile("audio/iv2.wav")} volume={1} />
       </Sequence>
-      <Sequence from={456}>
+      <Sequence from={610}>
         <Audio src={staticFile("audio/iv3.wav")} volume={1} />
       </Sequence>
-      <Sequence from={706}>
+      <Sequence from={930}>
         <Audio src={staticFile("audio/iv4.wav")} volume={1} />
       </Sequence>
-      <Sequence from={916}>
+      <Sequence from={1210}>
         <Audio src={staticFile("audio/iv5.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1166}>
+      <Sequence from={1540}>
         <Audio src={staticFile("audio/iv6.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1406}>
+      <Sequence from={1850}>
         <Audio src={staticFile("audio/iv7.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1636}>
+      <Sequence from={2130}>
         <Audio src={staticFile("audio/iv8.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1772}>
+      <Sequence from={2270}>
         <Audio src={staticFile("audio/iv9.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1916}>
+      <Sequence from={2460}>
         <Audio src={staticFile("audio/iv10.wav")} volume={1} />
       </Sequence>
       {/* SFX */}
-      <Sfx src="tick.wav" from={20} volume={0.4} />
-      <Sfx src="boom.wav" from={612} volume={0.6} />
-      <Sfx src="whoosh.wav" from={900} volume={0.4} />
-      <Sfx src="pulse.wav" from={1160} volume={0.45} />
-      <Sfx src="boom.wav" from={1620} volume={0.4} />
-      <Sfx src="riser.wav" from={1840} volume={0.4} />
-      <Sfx src="success.wav" from={1916} volume={0.45} />
+      <Sfx src="tick.wav" from={30} volume={0.4} />
+      <Sfx src="boom.wav" from={730} volume={0.6} />
+      <Sfx src="whoosh.wav" from={1150} volume={0.4} />
+      <Sfx src="pulse.wav" from={1490} volume={0.45} />
+      <Sfx src="boom.wav" from={2090} volume={0.4} />
+      <Sfx src="riser.wav" from={2360} volume={0.4} />
+      <Sfx src="success.wav" from={2460} volume={0.45} />
 
       <Void warm={warm} />
-      <SCold />
-      <SProblem />
-      <SInvert />
-      <SAgent />
-      <SParallel />
-      <SCheat />
-      <SJudge />
-      <SDawn />
-      <SEnd />
+      <AbsoluteFill style={{ transform: "scale(1.2)" }}>
+        <SCold />
+        <SProblem />
+        <SInvert />
+        <SAgent />
+        <SParallel />
+        <SCheat />
+        <SJudge />
+        <SDawn />
+        <SEnd />
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 };
