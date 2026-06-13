@@ -19,6 +19,7 @@ import {
   GLOWUP_DURATION,
 } from "./promo/resubird/GlowUp";
 import { ResumeRace, RACE_DURATION } from "./promo/resubird/ResumeRace";
+import { Ghosted, GHOST_DURATION } from "./promo/resubird/Ghosted";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -108,6 +109,14 @@ export const RemotionRoot: React.FC = () => {
         component={ResumeRace}
         fps={30}
         durationInFrames={RACE_DURATION}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="ResubirdGhosted"
+        component={Ghosted}
+        fps={30}
+        durationInFrames={GHOST_DURATION}
         width={1080}
         height={1920}
       />
