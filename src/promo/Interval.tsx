@@ -14,7 +14,7 @@ import "@fontsource-variable/space-grotesk";
 import "@fontsource-variable/jetbrains-mono";
 import { FONTS } from "./theme";
 
-export const INTERVAL_DURATION = 2360; // ~78.7s @ 30fps
+export const INTERVAL_DURATION = 2470; // ~82s @ 30fps
 
 const EASE = Easing.bezier(0.22, 1, 0.36, 1);
 const OUT = Easing.bezier(0.4, 0, 1, 1);
@@ -29,15 +29,16 @@ const BARH = 132; // letterbox bar height -> ~2.4:1
 const yf = (n: string) => staticFile(`yupcha/${n}`);
 
 // phase windows
-const COLD: [number, number] = [0, 230];
-const PROBLEM: [number, number] = [230, 470];
-const INVERT: [number, number] = [470, 740];
-const AGENT: [number, number] = [740, 980];
-const PARALLEL: [number, number] = [980, 1290];
-const CHEAT: [number, number] = [1290, 1560];
-const JUDGE: [number, number] = [1560, 1820];
-const DAWN: [number, number] = [1820, 2120];
-const END: [number, number] = [2120, 2360];
+const TITLE: [number, number] = [0, 124];
+const COLD: [number, number] = [110, 340];
+const PROBLEM: [number, number] = [340, 580];
+const INVERT: [number, number] = [580, 850];
+const AGENT: [number, number] = [850, 1090];
+const PARALLEL: [number, number] = [1090, 1400];
+const CHEAT: [number, number] = [1400, 1670];
+const JUDGE: [number, number] = [1670, 1930];
+const DAWN: [number, number] = [1930, 2230];
+const END: [number, number] = [2230, 2470];
 
 const ip = (f: number, a: number[], b: number[], e = EASE) =>
   interpolate(f, a, b, {
@@ -787,6 +788,96 @@ const SEnd: React.FC = () => {
   );
 };
 
+// ——— 0: title card ———
+const STitle: React.FC = () => {
+  const frame = useCurrentFrame();
+  const local = frame - TITLE[0];
+  const o = Math.min(ip(local, [16, 46], [0, 1]), ip(local, [96, 122], [1, 0], OUT));
+  const z = ip(local, [0, 124], [1.06, 1.0]);
+  const ca = 1 + Math.abs(Math.sin(local / 6)) * (local < 40 ? 5 : 1.6);
+  return (
+    <AbsoluteFill style={{ opacity: o }}>
+      <Center style={{ flexDirection: "column" }}>
+        <Chroma
+          amt={ca}
+          style={{
+            fontFamily: FONTS.body,
+            fontSize: 120,
+            fontWeight: 200,
+            letterSpacing: "0.42em",
+            color: WHITE,
+            transform: `scale(${z})`,
+            paddingLeft: "0.42em",
+          }}
+        >
+          INTERVAL
+        </Chroma>
+        <div
+          style={{
+            fontFamily: FONTS.mono,
+            fontSize: 22,
+            letterSpacing: "0.34em",
+            color: DIM,
+            marginTop: 30,
+            textTransform: "uppercase",
+            opacity: ip(local, [40, 64], [0, 1]),
+          }}
+        >
+          A Yupcha Film
+        </div>
+      </Center>
+    </AbsoluteFill>
+  );
+};
+
+// ——— beat flash-cuts (A24 montage hits) ———
+const FLASHES: { src: string; at: number; len: number }[] = [
+  // burst on the inversion boom (~738)
+  { src: "candidate2.jpeg", at: 726, len: 4 },
+  { src: "interviewer.webp", at: 731, len: 4 },
+  { src: "dashboard.webp", at: 737, len: 5 },
+  { src: "candidate_happy.webp", at: 743, len: 4 },
+  // burst into the anti-cheat (~1410)
+  { src: "candidate2.jpeg", at: 1398, len: 4 },
+  { src: "dashboard.webp", at: 1404, len: 4 },
+  { src: "interviewer.webp", at: 1410, len: 5 },
+];
+
+const FlashCuts: React.FC = () => {
+  const frame = useCurrentFrame();
+  return (
+    <>
+      {FLASHES.map((f, i) => {
+        if (frame < f.at || frame > f.at + f.len) return null;
+        const o = ip(frame, [f.at, f.at + 1, f.at + f.len - 1, f.at + f.len], [0, 0.9, 0.9, 0]);
+        const sc = 1.08 + (i % 2) * 0.06;
+        const cx = (i % 2 ? 5 : -5);
+        return (
+          <AbsoluteFill key={i} style={{ opacity: o, overflow: "hidden" }}>
+            <AbsoluteFill style={{ transform: `scale(${sc}) translateX(${cx}px)` }}>
+              <Img
+                src={yf(f.src)}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                  filter: "grayscale(0.3) contrast(1.15) brightness(0.85)",
+                }}
+              />
+            </AbsoluteFill>
+            <AbsoluteFill
+              style={{
+                background: `linear-gradient(90deg, ${RED}14, transparent, ${CYAN}14)`,
+                mixBlendMode: "screen",
+              }}
+            />
+          </AbsoluteFill>
+        );
+      })}
+    </>
+  );
+};
+
 const Sfx: React.FC<{ src: string; from: number; volume?: number }> = ({
   src,
   from,
@@ -808,52 +899,53 @@ export const Interval: React.FC = () => {
         volume={(f) =>
           interpolate(
             f,
-            [0, 60, INTERVAL_DURATION - 60, INTERVAL_DURATION - 10],
-            [0, 0.075, 0.075, 0],
+            [0, 60, 2345, 2400, 2440, 2465],
+            [0, 0.075, 0.075, 0.13, 0.13, 0],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           )
         }
       />
       {/* VO */}
-      <Sequence from={40}>
+      <Sequence from={150}>
         <Audio src={staticFile("audio/iv1.wav")} volume={1} />
       </Sequence>
-      <Sequence from={245}>
+      <Sequence from={355}>
         <Audio src={staticFile("audio/iv2.wav")} volume={1} />
       </Sequence>
-      <Sequence from={485}>
+      <Sequence from={595}>
         <Audio src={staticFile("audio/iv3.wav")} volume={1} />
       </Sequence>
-      <Sequence from={755}>
+      <Sequence from={865}>
         <Audio src={staticFile("audio/iv4.wav")} volume={1} />
       </Sequence>
-      <Sequence from={995}>
+      <Sequence from={1105}>
         <Audio src={staticFile("audio/iv5.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1305}>
+      <Sequence from={1415}>
         <Audio src={staticFile("audio/iv6.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1575}>
+      <Sequence from={1685}>
         <Audio src={staticFile("audio/iv7.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1835}>
+      <Sequence from={1945}>
         <Audio src={staticFile("audio/iv8.wav")} volume={1} />
       </Sequence>
-      <Sequence from={1990}>
+      <Sequence from={2100}>
         <Audio src={staticFile("audio/iv9.wav")} volume={1} />
       </Sequence>
-      <Sequence from={2150}>
+      <Sequence from={2260}>
         <Audio src={staticFile("audio/iv10.wav")} volume={1} />
       </Sequence>
       {/* SFX */}
-      <Sfx src="tick.wav" from={20} volume={0.4} />
-      <Sfx src="boom.wav" from={628} volume={0.65} />
-      <Sfx src="whoosh.wav" from={740} volume={0.4} />
-      <Sfx src="pulse.wav" from={1300} volume={0.45} />
-      <Sfx src="boom.wav" from={1820} volume={0.4} />
-      <Sfx src="riser.wav" from={2080} volume={0.4} />
-      <Sfx src="success.wav" from={2150} volume={0.45} />
+      <Sfx src="tick.wav" from={130} volume={0.4} />
+      <Sfx src="boom.wav" from={738} volume={0.65} />
+      <Sfx src="whoosh.wav" from={850} volume={0.4} />
+      <Sfx src="pulse.wav" from={1410} volume={0.45} />
+      <Sfx src="boom.wav" from={1930} volume={0.4} />
+      <Sfx src="riser.wav" from={2190} volume={0.4} />
+      <Sfx src="success.wav" from={2260} volume={0.45} />
 
+      <STitle />
       <SCold />
       <SProblem />
       <SInvert />
@@ -864,6 +956,7 @@ export const Interval: React.FC = () => {
       <SDawn />
       <SEnd />
 
+      <FlashCuts />
       <Overlays />
     </AbsoluteFill>
   );
