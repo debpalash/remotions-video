@@ -20,8 +20,16 @@ import { LightBackdrop, RPop } from "./ui";
 
 export const GLOWUP_DURATION = 480; // 16s @ 30fps
 
-const WEAK = "Worked on backend services.";
-const STRONG = "Cut API p95 latency 40% across 12 services.";
+export type GlowConfig = {
+  roleTag?: string; // optional mono chip, e.g. "PRODUCT MANAGER"
+  weak: string;
+  strong: string;
+  start: number;
+  end: number;
+  headA: string;
+  headB: string;
+  vo: { weak: string; transform: string; cta: string };
+};
 
 // Phase boundaries (frames)
 const REWRITE_AT = 140; // weak bullet dies
@@ -31,19 +39,24 @@ const CLIMB_FROM = 185; // ring starts climbing
 const CLIMB_TO = 285;
 const CTA_AT = 340;
 
-const RingClimb: React.FC = () => {
+const RingClimb: React.FC<{ start: number; end: number }> = ({
+  start,
+  end,
+}) => {
   const frame = useCurrentFrame();
-  const progress = interpolate(frame, [CLIMB_FROM, CLIMB_TO], [58, 92], {
+  const progress = interpolate(frame, [CLIMB_FROM, CLIMB_TO], [start, end], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const mid = (start + end) / 2;
   const color = interpolateColors(
     progress,
-    [58, 75, 92],
+    [start, mid, end],
     [RB.amber, RB.orange, RB.green],
   );
-  const label = progress < 75 ? "NEEDS WORK" : progress < 90 ? "GETTING THERE" : "GOOD FIT";
-  // celebration pulse when 92 lands
+  const label =
+    progress < 75 ? "NEEDS WORK" : progress < 90 ? "GETTING THERE" : "GOOD FIT";
+  // celebration pulse when the score lands
   const pulse = interpolate(frame, [CLIMB_TO, CLIMB_TO + 30], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
@@ -125,7 +138,10 @@ const RingClimb: React.FC = () => {
   );
 };
 
-const Bullet: React.FC = () => {
+const Bullet: React.FC<{ weak: string; strong: string }> = ({
+  weak,
+  strong,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const cardIn = spring({
@@ -137,10 +153,10 @@ const Bullet: React.FC = () => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
-  const typed = STRONG.slice(
+  const typed = strong.slice(
     0,
     Math.round(
-      interpolate(frame, [TYPE_FROM, TYPE_TO], [0, STRONG.length], {
+      interpolate(frame, [TYPE_FROM, TYPE_TO], [0, strong.length], {
         extrapolateLeft: "clamp",
         extrapolateRight: "clamp",
       }),
@@ -187,7 +203,7 @@ const Bullet: React.FC = () => {
             minHeight: 120,
           }}
         >
-          • {WEAK}
+          • {weak}
         </div>
       ) : (
         <div
@@ -214,7 +230,55 @@ const Bullet: React.FC = () => {
   );
 };
 
-export const GlowUp: React.FC = () => {
+const RoleChip: React.FC<{ label: string }> = ({ label }) => {
+  const frame = useCurrentFrame();
+  const o = interpolate(frame, [4, 24], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+  return (
+    <div
+      style={{
+        opacity: o,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "12px 28px",
+        borderRadius: 999,
+        border: `1px solid ${RB.orange}55`,
+        background: `${RB.orange}14`,
+        fontFamily: FONTS.mono,
+        fontSize: 24,
+        fontWeight: 600,
+        letterSpacing: "0.26em",
+        textTransform: "uppercase",
+        color: "#c2570c",
+      }}
+    >
+      <span
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: 99,
+          background: RB.orange,
+          boxShadow: `0 0 12px ${RB.orange}`,
+        }}
+      />
+      {label}
+    </div>
+  );
+};
+
+export const GlowUp: React.FC<{ config?: GlowConfig }> = ({ config }) => {
+  const c: GlowConfig = config ?? {
+    weak: "Worked on backend services.",
+    strong: "Cut API p95 latency 40% across 12 services.",
+    start: 58,
+    end: 92,
+    headA: "Same experience.",
+    headB: "Better words.",
+    vo: { weak: "gvo1", transform: "gvo2", cta: "gvo3" },
+  };
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const headA = Math.min(
@@ -264,13 +328,13 @@ export const GlowUp: React.FC = () => {
         }
       />
       <Sequence from={20}>
-        <Audio src={staticFile("audio/gvo1.wav")} volume={1} />
+        <Audio src={staticFile(`audio/${c.vo.weak}.wav`)} volume={1} />
       </Sequence>
       <Sequence from={150}>
-        <Audio src={staticFile("audio/gvo2.wav")} volume={1} />
+        <Audio src={staticFile(`audio/${c.vo.transform}.wav`)} volume={1} />
       </Sequence>
       <Sequence from={CTA_AT + 14}>
-        <Audio src={staticFile("audio/gvo3.wav")} volume={1} />
+        <Audio src={staticFile(`audio/${c.vo.cta}.wav`)} volume={1} />
       </Sequence>
       <LightBackdrop />
       {/* main continuous shot */}
@@ -280,10 +344,11 @@ export const GlowUp: React.FC = () => {
           alignItems: "center",
           justifyContent: "center",
           flexDirection: "column",
-          gap: 70,
+          gap: 56,
           padding: "0 70px",
         }}
       >
+        {c.roleTag ? <RoleChip label={c.roleTag} /> : null}
         <div style={{ position: "relative", height: 130 }}>
           <div
             style={{
@@ -299,7 +364,7 @@ export const GlowUp: React.FC = () => {
               opacity: headA,
             }}
           >
-            Same experience.
+            {c.headA}
           </div>
           <div
             style={{
@@ -315,11 +380,11 @@ export const GlowUp: React.FC = () => {
               ...RB_GRADIENT_TEXT,
             }}
           >
-            Better words.
+            {c.headB}
           </div>
         </div>
-        <RingClimb />
-        <Bullet />
+        <RingClimb start={c.start} end={c.end} />
+        <Bullet weak={c.weak} strong={c.strong} />
       </AbsoluteFill>
       {/* CTA */}
       {frame >= CTA_AT && (
@@ -396,3 +461,41 @@ export const GlowUp: React.FC = () => {
     </AbsoluteFill>
   );
 };
+
+// ————— Series variants —————
+const PM: GlowConfig = {
+  roleTag: "Product Manager",
+  weak: "Responsible for the product roadmap.",
+  strong: "Cut 3 features, shipped 2, grew activation 23%.",
+  start: 57,
+  end: 91,
+  headA: "Same role.",
+  headB: "Real impact.",
+  vo: { weak: "pm_w", transform: "pm_t", cta: "cta_glow" },
+};
+
+const DATA: GlowConfig = {
+  roleTag: "Data Analyst",
+  weak: "Built dashboards in Tableau.",
+  strong: "Replaced 40 dashboards. Saved 15 hours a week.",
+  start: 52,
+  end: 94,
+  headA: "Same job.",
+  headB: "Real numbers.",
+  vo: { weak: "da_w", transform: "da_t", cta: "cta_glow" },
+};
+
+const DESIGN: GlowConfig = {
+  roleTag: "Product Designer",
+  weak: "Redesigned the checkout flow.",
+  strong: "Cut checkout drop-off from 60% to 12%.",
+  start: 60,
+  end: 93,
+  headA: "Same work.",
+  headB: "Real outcome.",
+  vo: { weak: "de_w", transform: "de_t", cta: "cta_glow" },
+};
+
+export const GlowUpPM: React.FC = () => <GlowUp config={PM} />;
+export const GlowUpData: React.FC = () => <GlowUp config={DATA} />;
+export const GlowUpDesign: React.FC = () => <GlowUp config={DESIGN} />;
