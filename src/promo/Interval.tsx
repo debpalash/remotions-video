@@ -800,13 +800,16 @@ const Sfx: React.FC<{ src: string; from: number; volume?: number }> = ({
 export const Interval: React.FC = () => {
   return (
     <AbsoluteFill style={{ fontFamily: FONTS.body, background: "#000" }}>
+      {/* Sky High — known-clean instrumental drop (52.5s+), flat + low so it
+          never competes with the Luxe narration (avoids the track's vocal chop) */}
       <Audio
         src={staticFile("audio/ncs-sky-high.mp3")}
+        trimBefore={Math.round(52.5 * 30)}
         volume={(f) =>
           interpolate(
             f,
-            [0, 90, DAWN[0], END[0], INTERVAL_DURATION - 70, INTERVAL_DURATION - 10],
-            [0, 0.06, 0.06, 0.17, 0.17, 0],
+            [0, 60, INTERVAL_DURATION - 60, INTERVAL_DURATION - 10],
+            [0, 0.075, 0.075, 0],
             { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
           )
         }
