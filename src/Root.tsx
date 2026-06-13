@@ -20,6 +20,8 @@ import {
 } from "./promo/resubird/GlowUp";
 import { ResumeRace, RACE_DURATION } from "./promo/resubird/ResumeRace";
 import { Ghosted, GHOST_DURATION } from "./promo/resubird/Ghosted";
+import { ProveReal, PROVEREAL_DURATION } from "./promo/ProveReal";
+import { YupchaScreens, SCREENS_DURATION } from "./promo/YupchaScreens";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -117,6 +119,22 @@ export const RemotionRoot: React.FC = () => {
         component={Ghosted}
         fps={30}
         durationInFrames={GHOST_DURATION}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="ProveYoureReal"
+        component={ProveReal}
+        fps={30}
+        durationInFrames={PROVEREAL_DURATION}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="YupchaScreensAll"
+        component={YupchaScreens}
+        fps={30}
+        durationInFrames={SCREENS_DURATION}
         width={1080}
         height={1920}
       />
