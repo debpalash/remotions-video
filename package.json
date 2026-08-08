@@ -17,7 +17,10 @@
     "@remotion/transitions": "4.0.476",
     "@remotion/webcodecs": "4.0.476",
     "@remotion/zod-types": "4.0.476",
+    "animejs": "^3.2.2",
+    "lucide-react": "^0.469.0",
     "mediabunny": "1.45.0",
+    "p5": "^1.11.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "remotion": "4.0.476",
@@ -26,17 +29,27 @@
   },
   "devDependencies": {
     "@remotion/eslint-config-flat": "4.0.476",
+    "@types/animejs": "^3.1.12",
+    "@types/node": "^22.10.0",
+    "@types/p5": "^1.7.6",
     "@types/react": "19.2.7",
+    "@types/react-dom": "^19.0.0",
     "@types/three": "0.170.0",
     "@types/web": "0.0.166",
+    "esbuild": "^0.24.0",
     "eslint": "9.19.0",
+    "playwright": "^1.49.0",
+    "pngjs": "^7.0.0",
     "prettier": "3.6.0",
-    "typescript": "5.9.3"
+    "tsx": "^4.19.0",
+    "typescript": "5.9.3",
+    "vitest": "^2.1.8"
   },
   "scripts": {
     "dev": "remotionb studio",
     "build": "remotionb bundle",
     "upgrade": "remotionb upgrade",
-    "lint": "eslint src && tsc"
+    "lint": "eslint src && tsc",
+    "web": "cd web && next dev --port 3000"
   }
 }

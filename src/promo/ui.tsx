@@ -7,7 +7,39 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import { icons as LUCIDE_ICONS } from "lucide-react";
 import { COLORS, FONTS } from "./theme";
+
+/* -------------------------------------------------------------------------- */
+/*  Icon resolution                                                            */
+/*  Spec callout `icon` is a lucide-react name (kebab-case enum, NOT arbitrary */
+/*  svg). Resolve it to the inline, tree-shakeable lucide component. Legacy     */
+/*  emoji strings (e.g. "🤖") fall through and render as text.                  */
+/* -------------------------------------------------------------------------- */
+
+/** kebab/snake-case lucide id → PascalCase export key (`message-circle` → `MessageCircle`). */
+const toPascal = (name: string): string =>
+  name
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join("");
+
+/**
+ * Render a lucide icon by name. If the name is not a known lucide id (e.g. a
+ * legacy emoji string), render it as text so old call sites keep working.
+ */
+const Glyph: React.FC<{ name: string; size: number; color: string }> = ({
+  name,
+  size,
+  color,
+}) => {
+  const Cmp = (LUCIDE_ICONS as Record<string, React.ComponentType<any>>)[
+    toPascal(name)
+  ];
+  if (!Cmp) return <>{name}</>;
+  return <Cmp size={size} color={color} strokeWidth={2.25} absoluteStrokeWidth />;
+};
 
 const GRAIN_URI = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E")`;
 
@@ -159,9 +191,10 @@ export const Kicker: React.FC<{ children: React.ReactNode; delay?: number }> = (
 // Floating glassmorphic feature callout chip
 export const Callout: React.FC<{
   delay: number;
+  /** lucide-react icon name (kebab-case) OR a legacy emoji string. */
   icon: string;
   title: string;
-  sub: string;
+  sub?: string;
   style?: React.CSSProperties;
   accent?: string;
 }> = ({ delay, icon, title, sub, style, accent = COLORS.blue }) => {
@@ -207,7 +240,7 @@ export const Callout: React.FC<{
           boxShadow: `inset 0 1px 0 rgba(255,255,255,0.15)`,
         }}
       >
-        {icon}
+        <Glyph name={icon} size={30} color={accent} />
       </div>
       <div>
         <div
@@ -221,16 +254,18 @@ export const Callout: React.FC<{
         >
           {title}
         </div>
-        <div
-          style={{
-            fontFamily: FONTS.body,
-            fontSize: 21,
-            color: COLORS.dim,
-            marginTop: 3,
-          }}
-        >
-          {sub}
-        </div>
+        {sub ? (
+          <div
+            style={{
+              fontFamily: FONTS.body,
+              fontSize: 21,
+              color: COLORS.dim,
+              marginTop: 3,
+            }}
+          >
+            {sub}
+          </div>
+        ) : null}
       </div>
     </div>
   );

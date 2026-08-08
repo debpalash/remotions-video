@@ -11,6 +11,67 @@ import {
 } from "remotion";
 import { COLORS, FONTS, GRADIENT_TEXT } from "./theme";
 import { Backdrop, Callout, Kicker, Pop, ScreenFrame } from "./ui";
+import type { HookProps, ProductShotProps, CtaProps } from "../spec";
+
+/* -------------------------------------------------------------------------- */
+/*  Prop-driven scene resolvers                                                */
+/*  These map the spec's enum/anchor/asset-key slots (which the LLM assembles  */
+/*  but cannot style) onto the existing Remotion primitives. The Kino runtime  */
+/*  swap is a later step; for now scenes still render through these imports.   */
+/* -------------------------------------------------------------------------- */
+
+/** ProductShot callout shape (one element of `ProductShotProps["callouts"]`). */
+type CalloutSpec = ProductShotProps["callouts"][number];
+
+/**
+ * Resolve a `screen` asset key → a `staticFile`-able path. Keys may already
+ * carry an extension; bare keys default to `.webp` (the product-shot still
+ * format in `public/`). NEVER resolves to a video — `ScreenFrame` uses `Img`.
+ */
+const resolveAsset = (key: string): string =>
+  /\.[a-z0-9]+$/i.test(key) ? key : `${key}.webp`;
+
+/** PaletteKey accent enum → a concrete brand color (kills hex in scene props). */
+const ACCENT_COLOR: Record<CalloutSpec["accent"], string> = {
+  accent: COLORS.blue,
+  accent2: COLORS.green,
+  text: COLORS.white,
+};
+
+/**
+ * Anchor corner → absolute placement. Anchors (NOT left/top literals) are what
+ * the spec exposes so the model can't author off-grid geometry. `split` layout
+ * pins callouts to the screen column (right half); `single` uses the safe
+ * margins of the full frame.
+ */
+const calloutPosition = (
+  anchor: CalloutSpec["anchor"],
+  layout: ProductShotProps["layout"],
+): React.CSSProperties => {
+  const inset = layout === "split" ? 40 : 90;
+  const vTop = layout === "split" ? 120 : 440;
+  const vBottom = layout === "split" ? 40 : 90;
+  const x = anchor === "tl" || anchor === "bl" ? { left: inset } : { right: inset };
+  const y =
+    anchor === "tl" || anchor === "tr" ? { top: vTop } : { bottom: vBottom };
+  return { ...x, ...y };
+};
+
+/**
+ * Render a headline string, lifting a single `*marked*` span into the signature
+ * gradient. This is the one emphasis affordance the copy controls — no raw
+ * colors leak into props. Used by both ProductShot and CTA.
+ */
+const renderHeadline = (text: string): React.ReactNode =>
+  text.split(/\*(.+?)\*/).map((p, i) =>
+    i % 2 === 1 ? (
+      <span key={i} style={GRADIENT_TEXT}>
+        {p}
+      </span>
+    ) : (
+      <React.Fragment key={i}>{p}</React.Fragment>
+    ),
+  );
 
 const Center: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <AbsoluteFill
@@ -69,26 +130,57 @@ const StaggerLine: React.FC<{
   );
 };
 
-// ————— Scene 1: Hook —————
-export const Hook: React.FC = () => {
+// ————— Scene 1: Hook (S1) —————
+// Prop-driven: one claim, ≤3s, always the shortest scene. `lines[]` drives the
+// kinetic stagger; the final line carries the signature gradient. With no
+// props it renders the original Yupcha hook verbatim (legacy visual preserved).
+
+/** Original hard-coded hook, kept pixel-for-pixel for the shipped promo. */
+const LegacyYupchaHook: React.FC = () => (
+  <div style={{ ...headline, fontSize: 112, lineHeight: 1.12 }}>
+    <StaggerLine words={["Hiring", "takes"]} delay={2} />
+    <StaggerLine
+      words={["42", "days."]}
+      delay={12}
+      style={{ color: COLORS.red }}
+    />
+    <StaggerLine words={["Your", "best", "candidates"]} delay={40} />
+    <StaggerLine
+      words={["are", "gone", "in", "10."]}
+      delay={52}
+      style={GRADIENT_TEXT}
+    />
+  </div>
+);
+
+export const Hook: React.FC<Partial<HookProps>> = ({ lines }) => {
+  // Font size shrinks as the claim gets denser, keeping it on one screen.
+  const fontSize = !lines ? 112 : lines.length >= 3 ? 84 : 112;
   return (
     <AbsoluteFill>
       <Backdrop />
       <Center>
-        <div style={{ ...headline, fontSize: 112, lineHeight: 1.12 }}>
-          <StaggerLine words={["Hiring", "takes"]} delay={2} />
-          <StaggerLine
-            words={["42", "days."]}
-            delay={12}
-            style={{ color: COLORS.red }}
-          />
-          <StaggerLine words={["Your", "best", "candidates"]} delay={40} />
-          <StaggerLine
-            words={["are", "gone", "in", "10."]}
-            delay={52}
-            style={GRADIENT_TEXT}
-          />
-        </div>
+        {lines ? (
+          <div
+            style={{
+              ...headline,
+              fontSize,
+              lineHeight: 1.12,
+              textAlign: "center",
+            }}
+          >
+            {lines.map((line, i) => (
+              <StaggerLine
+                key={i}
+                words={line.split(" ")}
+                delay={2 + i * 14}
+                style={i === lines.length - 1 ? GRADIENT_TEXT : undefined}
+              />
+            ))}
+          </div>
+        ) : (
+          <LegacyYupchaHook />
+        )}
       </Center>
     </AbsoluteFill>
   );
@@ -212,7 +304,110 @@ export const LogoReveal: React.FC = () => {
   );
 };
 
-// ————— Scene 4: AI Interviewer —————
+// ————— S3 ProductShot — hero UI + callouts (the signature motion) —————
+// The single collapse of DashboardShot / AnalysisShot / ResubirdShot. One
+// prop-driven archetype: Kicker → headline → ScreenFrame → Callouts. `layout`
+// picks the composition; `screen` is an asset key (still/Img, never video);
+// callouts anchor to corners (no left/top literals).
+export const ProductShot: React.FC<ProductShotProps> = ({
+  kicker,
+  headline: headlineText,
+  screen,
+  layout,
+  tilt,
+  callouts,
+}) => {
+  const src = staticFile(resolveAsset(screen));
+
+  if (layout === "split") {
+    return (
+      <AbsoluteFill>
+        <Backdrop />
+        <AbsoluteFill
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            padding: "0 130px",
+            gap: 80,
+          }}
+        >
+          <div style={{ flex: 1.1 }}>
+            <Kicker>{kicker}</Kicker>
+            <Pop delay={10}>
+              <div
+                style={{
+                  ...headline,
+                  fontSize: 86,
+                  lineHeight: 1.08,
+                  marginTop: 30,
+                }}
+              >
+                {renderHeadline(headlineText)}
+              </div>
+            </Pop>
+          </div>
+          <div style={{ flex: 0.9, position: "relative" }}>
+            <ScreenFrame src={src} delay={14} tilt={tilt} style={{ width: 730 }} />
+            {callouts.map((c, i) => (
+              <Callout
+                key={i}
+                delay={36 + i * 12}
+                icon={c.icon}
+                title={c.title}
+                sub={c.sub}
+                accent={ACCENT_COLOR[c.accent]}
+                style={calloutPosition(c.anchor, layout)}
+              />
+            ))}
+          </div>
+        </AbsoluteFill>
+      </AbsoluteFill>
+    );
+  }
+
+  // single (full-bleed hero)
+  return (
+    <AbsoluteFill>
+      <Backdrop />
+      <AbsoluteFill style={{ alignItems: "center", paddingTop: 64 }}>
+        <Kicker>{kicker}</Kicker>
+        <Pop delay={8}>
+          <div
+            style={{
+              ...headline,
+              fontSize: 78,
+              marginTop: 26,
+              textAlign: "center",
+            }}
+          >
+            {renderHeadline(headlineText)}
+          </div>
+        </Pop>
+      </AbsoluteFill>
+      <AbsoluteFill
+        style={{ justifyContent: "flex-end", alignItems: "center", bottom: -40 }}
+      >
+        <ScreenFrame src={src} delay={16} tilt={tilt} style={{ width: 1380 }} />
+      </AbsoluteFill>
+      {callouts.map((c, i) => (
+        <Callout
+          key={i}
+          delay={36 + i * 12}
+          icon={c.icon}
+          title={c.title}
+          sub={c.sub}
+          accent={ACCENT_COLOR[c.accent]}
+          style={calloutPosition(c.anchor, layout)}
+        />
+      ))}
+    </AbsoluteFill>
+  );
+};
+
+/* —— Legacy promo wrappers (preserve the shipped YupchaPromo visuals) ———————
+ * These pin the exact props the three original shots used so the existing
+ * `YupchaPromo.tsx` (which this run does not own) keeps rendering unchanged.   */
+
 export const DashboardShot: React.FC = () => (
   <AbsoluteFill>
     <Backdrop />
@@ -259,7 +454,6 @@ export const DashboardShot: React.FC = () => (
   </AbsoluteFill>
 );
 
-// ————— Scene 5: Live analysis —————
 export const AnalysisShot: React.FC = () => (
   <AbsoluteFill>
     <Backdrop hue="green" />
@@ -299,7 +493,6 @@ export const AnalysisShot: React.FC = () => (
   </AbsoluteFill>
 );
 
-// ————— Scene 6: Resubird —————
 export const ResubirdShot: React.FC = () => (
   <AbsoluteFill>
     <Backdrop />
@@ -544,8 +737,10 @@ export const Testimonial: React.FC = () => {
   );
 };
 
-// ————— Scene 9: CTA —————
-export const CTA: React.FC = () => {
+// ————— S7 CTA — wordmark + one action, longest hold; always last —————
+// Prop-driven: `headline` (with optional `*marked*` gradient span) + `url`
+// (drives the action pill). With no props it renders the original Yupcha CTA.
+export const CTA: React.FC<Partial<CtaProps>> = ({ headline: head, url }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const s = spring({ frame, fps, config: { damping: 14, mass: 1 } });
@@ -559,6 +754,7 @@ export const CTA: React.FC = () => {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
+  const action = url ? `Try free → ${url}` : "Try free → yupcha.com";
   return (
     <AbsoluteFill>
       <Backdrop />
@@ -583,7 +779,13 @@ export const CTA: React.FC = () => {
               lineHeight: 1.05,
             }}
           >
-            Hire <span style={GRADIENT_TEXT}>10× faster.</span>
+            {head ? (
+              renderHeadline(head)
+            ) : (
+              <>
+                Hire <span style={GRADIENT_TEXT}>10× faster.</span>
+              </>
+            )}
           </div>
         </Pop>
         <Pop delay={18}>
@@ -619,9 +821,7 @@ export const CTA: React.FC = () => {
             overflow: "hidden",
           }}
         >
-          <span style={{ position: "relative", zIndex: 1 }}>
-            Try free → yupcha.com
-          </span>
+          <span style={{ position: "relative", zIndex: 1 }}>{action}</span>
           <div
             style={{
               position: "absolute",

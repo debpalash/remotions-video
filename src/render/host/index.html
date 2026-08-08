@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kino Host</title>
+    <!--
+      Canonical host page TEMPLATE.
+
+      The renderer does NOT serve this file directly — `renderHostHtml()` in
+      `build.ts` produces the final document by inlining the spec + the esbuilt
+      bundle. This file is the human-readable reference for that output and the
+      single place the page's static structure/style is defined. The four
+      `%%KINO_*%%` tokens are the only dynamic slots; keep them in sync with
+      `renderHostHtml()`.
+
+      Determinism notes (ENGINE_DESIGN §5):
+        - No external <script src> / <link>: a served page fetches nothing, so the
+          render is a pure function of the injected spec.
+        - `window.__KINO_SPEC__` etc. are set BEFORE the bundle runs.
+        - The bundle (entry.tsx) captures the real rAF, then installs the
+          determinism sandbox; the page itself adds no timers/animations.
+    -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: %%KINO_BG%%;
+      }
+      /* Stable text rendering; no UA smooth-scroll or default animations. */
+      * {
+        -webkit-font-smoothing: antialiased;
+        text-rendering: geometricPrecision;
+      }
+      #kino-root {
+        position: absolute;
+        inset: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="kino-root"></div>
+    <script>
+      window.__KINO_SPEC__ = %%KINO_SPEC%%;
+      window.__KINO_VO_SECONDS__ = %%KINO_VO_SECONDS%%;
+      window.__KINO_FPS__ = %%KINO_FPS%%;
+      window.__KINO_INITIAL_FRAME__ = %%KINO_FRAME%%;
+    </script>
+    <script>
+      %%KINO_BUNDLE%%
+    </script>
+  </body>
+</html>
